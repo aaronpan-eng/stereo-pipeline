@@ -1,0 +1,25 @@
+# ROS2 colcon build artifacts
+build/
+install/
+log/
+
+# Data directory
+data/*.mcap
+data/*.db3
+data/*.bag
+#data/
+!data/.gitkeep
+
+# Output direcoty
+output/*
+!output/.gitkeep
+
+# Python stuff
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+*.egg
+
