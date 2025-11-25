@@ -4,11 +4,14 @@ install/
 log/
 
 # Data directory
-data/*.mcap
-data/*.db3
-data/*.bag
-#data/
+data/**/*.db3
+data/**/*.mcap
+data/**/*.bag
+data/**/metadata.yaml
+data/stereo_images*
 !data/.gitkeep
+
+
 
 # Output direcoty
 output/*
