@@ -33,8 +33,48 @@ RUN apt-get update && apt-get install -y \
     ros-humble-image-pipeline \
     python3-colcon-common-extensions \
     python3-rosdep \
+    ros-humble-rmw-zenoh-cpp \
+    ros-humble-zenoh-bridge-dds \
     && rm -rf /var/lib/apt/lists/*
 
+# Zenoh stuff for playing Neuroam ros2 bags
+RUN wget https://github.com/eclipse-zenoh/zenoh/releases/download/1.6.2/zenoh-1.6.2-x86_64-unknown-linux-gnu-standalone.zip \
+    && apt-get update && apt-get install -y unzip \
+    && unzip zenoh-1.6.2-x86_64-unknown-linux-gnu-standalone.zip -d /tmp/zenoh \
+    && cp /tmp/zenoh/zenohd /usr/local/bin/ \
+    && chmod +x /usr/local/bin/zenohd \
+    && rm -rf zenoh-1.6.2-x86_64-unknown-linux-gnu-standalone.zip /tmp/zenoh \
+    && apt-get remove -y unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /etc/zenoh
+RUN echo '{ \
+  "mode": "router", \
+  "scouting": { \
+    "multicast": { \
+      "enabled": true, \
+      "autoconnect": { \
+        "router": "all" \
+      } \
+    }, \
+    "gossip": { \
+      "enabled": true \
+    } \
+  }, \
+  "transport": { \
+    "link": { \
+      "tx": { \
+        "lease": 10000 \
+      } \
+    } \
+  } \
+}' > /etc/zenoh/zenoh.json
+
+ENV ZENOH_ROUTER_CONFIG_FILE=/etc/zenoh/zenoh.json
+
+ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
+
+RUN echo "export RMW_IMPLEMENTATION=rmw_zenoh_cpp" >> ~/.bashrc
 
 # Install fast LIMO prerequisites
 RUN apt-get update && apt-get install -y \

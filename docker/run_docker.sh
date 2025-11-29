@@ -35,10 +35,31 @@ else
        -v ../src:/workspace/src \
        -v ../data:/workspace/data \
        -v ../submodules/fast_LIMO:/workspace/fast_LIMO \
+       -v /media/aaron/T5\ EVO/payload1_20250828_1405:/workspace/data/payload1_20250828_1405 \
        -v /tmp/.X11-unix:/tmp/.X11-unix \
        --network host \
        ros2-pycuvslam \
        bash -c "
+            # Start Zenoh router in background
+            echo 'Starting Zenoh router...'
+            zenohd &
+            ZENOH_PID=\$!
+            echo 'Zenoh router started with PID: '\$ZENOH_PID
+            
+            # Give Zenoh a moment to initialize
+            sleep 5
+
+	    # Verify Zenoh is running
+            if ps -p \$ZENOH_PID > /dev/null; then
+                echo 'Zenoh router is running'
+            else
+                echo 'WARNING: Zenoh router failed to start'
+            fi
+
+	    # Set RMW to use Zenoh
+            export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+
+	    # Pycuvslam install
             if [ -d '/pycuvslam/bin/x86_64' ]; then
                 echo 'Installing pycuvslam...'
                 pip3 install -e /pycuvslam/bin/x86_64
