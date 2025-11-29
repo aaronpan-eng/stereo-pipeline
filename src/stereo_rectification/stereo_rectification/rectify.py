@@ -41,15 +41,19 @@ class RectifyStereoImgs(Node):
 
 
         # camera0 and 1  calibration instrinsics
-        self.K0 = 
-        self.D0 = D0 = 
+        self.K0 = np.array([[cam0_intrinsics[0], 0, cam0_intrinsics[2]],
+                             [0, cam0_intrinsics[1], cam0_intrinsics[3]],
+                             [0, 0, 1]], dtype=np.float64)
+        self.D0 = np.array(cam0_distortion, dtype=np.float64)
   
-        self.K1 = 
-        self.D1 = 
+        self.K1 = np.array([[cam1_intrinsics[0], 0, cam1_intrinsics[2]],
+                             [0, cam1_intrinsics[1], cam1_intrinsics[3]],
+                             [0, 0, 1]], dtype=np.float64)
+        self.D1 = np.array(cam1_distortion, dtype=np.float64)
+        self.T_cn_cnm1 = np.array(T_cam1_cam0, dtype=np.float64).reshape(4, 4) 
 
-        self.T_cn_cnm1 = 
-
-        self.image_size = (1224, 1024)
+        # Use resolution from parameters (width, height)
+        self.image_size = tuple(cam0_resolution)
         self._compute_maps()
         # self._compute_fundamental_matrix()
         
@@ -316,16 +320,16 @@ class RectifyStereoImgs(Node):
         rect_info_right.header.frame_id = 'cam1_rect'
         self.pub_right_info.publish(rect_info_right)
 
-        # if self.visualization:
-        #     # display unrectified pair
-        #     unrect_stereo_pair = np.hstack((left_img, right_img))
-        #     cv2.imshow('Unrectified Stereo Pair', unrect_stereo_pair)
-        #     cv2.waitKey(1)
+        if self.visualization:
+            # display unrectified pair
+            unrect_stereo_pair = np.hstack((left_img, right_img))
+            cv2.imshow('Unrectified Stereo Pair', unrect_stereo_pair)
+            cv2.waitKey(1)
             
-        #     # display rectified pair
-        #     stereo_pair = np.hstack((rect_l, rect_r))
-        #     cv2.imshow('Rectified Stereo Pair', stereo_pair)
-        #     cv2.waitKey(1)
+            # display rectified pair
+            stereo_pair = np.hstack((rect_l, rect_r))
+            cv2.imshow('Rectified Stereo Pair', stereo_pair)
+            cv2.waitKey(1)
 
 
 

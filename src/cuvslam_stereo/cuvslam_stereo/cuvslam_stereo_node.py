@@ -18,27 +18,14 @@ class CuvslamStereo(Node):
     def __init__(self):
         super().__init__('cuvslam_stereo_node')
 
-        # Setup rerun visualizer
-        rr.init('neuroam', strict=True, spawn=True)  # launch re-run instance
+        # TODO: create a yaml file with visualization and use_imu or visual only params
 
-        # Setup rerun views
-        rr.send_blueprint(rrb.Blueprint(
-            rrb.TimePanel(state="collapsed"),
-            rrb.Vertical(
-                row_shares=[0.6, 0.4],
-                contents=[rrb.Spatial3DView(), rrb.Spatial2DView(origin='cam_sync/cam0')]
-            )
-        ))
-
-        # Setup coordinate basis for root, cuvslam uses right-hand system with X-right, Y-down, Z-forward
-        rr.log("/", rr.ViewCoordinates.RIGHT_HAND_Y_DOWN, static=True)
-
-        # Draw arrays in origin X-red, Y-green, Z-blue
-        rr.log("xyz", rr.Arrows3D(
-            vectors=[[50, 0, 0], [0, 50, 0], [0, 0, 50]],
-            colors=[[255, 0, 0], [0, 255, 0], [0, 0, 255]],
-            labels=['[x]', '[y]', '[z]']
-        ), static=True)
+        # Setup rerun visualization
+        # like in kitti demo, the left camera is chosen for visualization
+        left_cam_topic = "/cam_sync/cam0"
+        self.rerun_visualization = True
+        if self.rerun_visualization:
+            self._initialize_rerun_visualization(left_cam_topic)
 
         self.trajectory = []
         
@@ -82,6 +69,29 @@ class CuvslamStereo(Node):
     def _color_from_id(self, identifier): 
         return [(identifier * 17) % 256, (identifier * 31) % 256, (identifier * 47) % 256]
 
+
+    def _initialize_rerun_visualization(self, cam_name):
+        # Setup rerun visualizer
+        rr.init('neuroam', strict=True, spawn=True)  # launch re-run instance
+
+        # Setup rerun views
+        rr.send_blueprint(rrb.Blueprint(
+            rrb.TimePanel(state="collapsed"),
+            rrb.Vertical(
+                row_shares=[0.6, 0.4],
+                contents=[rrb.Spatial3DView(), rrb.Spatial2DView(origin=cam_name)]
+            )
+        ))
+
+        # Setup coordinate basis for root, cuvslam uses right-hand system with X-right, Y-down, Z-forward
+        rr.log("/", rr.ViewCoordinates.RIGHT_HAND_Y_DOWN, static=True)
+
+        # Draw arrays in origin X-red, Y-green, Z-blue
+        rr.log("xyz", rr.Arrows3D(
+            vectors=[[50, 0, 0], [0, 50, 0], [0, 0, 50]],
+            colors=[[255, 0, 0], [0, 255, 0], [0, 0, 255]],
+            labels=['[x]', '[y]', '[z]']
+        ), static=True)
 
     def _initialize_cvslam_from_camera_info(self, left_info, right_info):
         # grab camera width and height
@@ -201,31 +211,34 @@ class CuvslamStereo(Node):
         landmarks_colors = [self._color_from_id(l.id) for l in landmarks]
         self.trajectory.append(odom_pose.translation)
 
-        # Send results to rerun for visualization
-        rr.set_time_nanos("frame", timestamp)
-        rr.log('trajectory', rr.LineStrips3D(self.trajectory))
-        rr.log('final_landmarks', rr.Points3D(list(final_landmarks.values()), radii=0.1))
-        rr.log('cam_sync', rr.Transform3D(
-            translation=odom_pose.translation,
-            quaternion=odom_pose.rotation
-        ))
-        rr.log('cam_sync/body', rr.Boxes3D(centers=[[0, 1.65 / 2, 0]], sizes=[[1.6, 1.65, 2.71]]))
-        rr.log('cam_sync/landmarks_center', rr.Points3D(
-            landmark_xyz, radii=0.25, colors=landmarks_colors
-        ))
-        rr.log('cam_sync/landmarks_lines', rr.Arrows3D(
-            vectors=landmark_xyz, radii=0.05, colors=landmarks_colors
-        ))
-        rr.log('cam_sync/cam0', rr.Pinhole(
-            image_from_camera=self.cam0_intrinsics_matrix, # image_plane_distance=1.68, from before
-            width=self.width,
-            height=self.height
-        ))
-        rr.log('cam_sync/cam0/image', rr.Image(left_img).compress(jpeg_quality=80))
-        rr.log('cam_sync/cam0/observations', rr.Points2D(
-            observations_uv, radii=5, colors=observations_colors
-        ))
+        # Visualize with rerun gui
+        if self.rerun_visualization:
+            # Send results to rerun for visualization
+            rr.set_time_nanos("frame", timestamp)
+            rr.log('trajectory', rr.LineStrips3D(self.trajectory))
+            rr.log('final_landmarks', rr.Points3D(list(final_landmarks.values()), radii=0.1))
+            rr.log('cam_sync', rr.Transform3D(
+                translation=odom_pose.translation,
+                quaternion=odom_pose.rotation
+            ))
+            rr.log('cam_sync/body', rr.Boxes3D(centers=[[0, 1.65 / 2, 0]], sizes=[[1.6, 1.65, 2.71]]))
+            rr.log('cam_sync/landmarks_center', rr.Points3D(
+                landmark_xyz, radii=0.25, colors=landmarks_colors
+            ))
+            rr.log('cam_sync/landmarks_lines', rr.Arrows3D(
+                vectors=landmark_xyz, radii=0.05, colors=landmarks_colors
+            ))
+            rr.log('cam_sync/cam0', rr.Pinhole(
+                image_from_camera=self.cam0_intrinsics_matrix, # image_plane_distance=1.68, from before
+                width=self.width,
+                height=self.height
+            ))
+            rr.log('cam_sync/cam0/image', rr.Image(left_img).compress(jpeg_quality=80))
+            rr.log('cam_sync/cam0/observations', rr.Points2D(
+                observations_uv, radii=5, colors=observations_colors
+            ))
 
+        # Visualize stereo pair video output and trajectory 2D X-Z live plot
         if self.visualization is True:
             stereo_pair = np.hstack((left_img, right_img))
             cv2.imshow('Stereo Pair - Cuvslam Node', stereo_pair)
