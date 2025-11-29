@@ -4,6 +4,7 @@
 [submodule "submodules/fast_LIMO"]
 	path = submodules/fast_LIMO
 	url = git@github.com:aaronpan-eng/fast_LIMO.git
+	branch = ros2-humble
 [submodule "submodules/pycuvslam"]
 	path = submodules/pycuvslam
 	url = git@github.com:NVlabs/PyCuVSLAM.git
