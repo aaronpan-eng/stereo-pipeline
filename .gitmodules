@@ -3,7 +3,7 @@
 	url = git@github.com:neufieldrobotics/NeuROAM.git
 [submodule "submodules/fast_LIMO"]
 	path = submodules/fast_LIMO
-	url = git@github.com:Srijan221/fast_LIMO.git
+	url = git@github.com:aaronpan-eng/fast_LIMO.git
 [submodule "submodules/pycuvslam"]
 	path = submodules/pycuvslam
 	url = git@github.com:NVlabs/PyCuVSLAM.git
