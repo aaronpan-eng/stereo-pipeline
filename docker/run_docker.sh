@@ -35,7 +35,7 @@ else
        -v ../src:/workspace/src \
        -v ../data:/workspace/data \
        -v ../submodules/fast_LIMO:/workspace/fast_LIMO \
-       -v /media/aaron/T5\ EVO/payload1_20250828_1405:/workspace/data/payload1_20250828_1405 \
+       -v /media/aaron/T5\ EVO1/payload1_20250828_1405:/workspace/data/payload1_20250828_1405 \
        -v /tmp/.X11-unix:/tmp/.X11-unix \
        --network host \
        ros2-pycuvslam \

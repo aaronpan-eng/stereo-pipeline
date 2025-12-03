@@ -40,7 +40,7 @@ class RectifyStereoImgs(Node):
         T_cam1_cam0 = self.get_parameter('cam1.T_cn_cnm1').value  # flattened 4x4 matrix
 
 
-        # camera0 and 1  calibration instrinsics
+        # camera0 and 1 calibration instrinsics
         self.K0 = np.array([[cam0_intrinsics[0], 0, cam0_intrinsics[2]],
                              [0, cam0_intrinsics[1], cam0_intrinsics[3]],
                              [0, 0, 1]], dtype=np.float64)
@@ -57,7 +57,7 @@ class RectifyStereoImgs(Node):
         self._compute_maps()
         # self._compute_fundamental_matrix()
         
-        # Flag to track if we've plotted epipolar lines for first image
+        # flag to track if plotted epipolar lines for first image
         self.epipolar_plotted = False
 
         # publishing rectified images
@@ -68,6 +68,7 @@ class RectifyStereoImgs(Node):
 
         self.visualization = False
 
+        # TODO: change this into a separate python script or break off into another function
         # image_directory = "/home/aaron/test_bags/stereo_images"
 
         # self.bridge = CvBridge()
@@ -330,8 +331,6 @@ class RectifyStereoImgs(Node):
             stereo_pair = np.hstack((rect_l, rect_r))
             cv2.imshow('Rectified Stereo Pair', stereo_pair)
             cv2.waitKey(1)
-
-
 
 
 def main(args=None):

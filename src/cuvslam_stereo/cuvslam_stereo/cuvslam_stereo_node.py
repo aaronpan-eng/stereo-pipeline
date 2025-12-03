@@ -1,17 +1,20 @@
 import numpy as np
 import cuvslam
 import rclpy
+import rerun as rr
+import rerun.blueprint as rrb
+import datetime
+import cv2
+import matplotlib.pyplot as plt
+
+from pathlib import Path
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image, CameraInfo
 from rclpy.time import Time
-import cv2
-import matplotlib.pyplot as plt
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 from cv_bridge import CvBridge
-import pandas as pd
-import rerun as rr
-import rerun.blueprint as rrb
+from cuvslam_stereo.utils import combine_poses, transform_landmarks
 
 
 class CuvslamStereo(Node):
@@ -27,9 +30,18 @@ class CuvslamStereo(Node):
         if self.rerun_visualization:
             self._initialize_rerun_visualization(left_cam_topic)
 
+        # To save trajectory data to csv upon node shutdown
         self.trajectory = []
+        self.trajectory_slam = []
+        self.odom_pose_estimates = []
+        self.slam_poses = []
+        self.loop_closure_poses = []
         
+        # To initialize tracker once upon first image pair callback
         self.initialize_tracker = False
+
+        # parameters for trakcer
+        self.use_imu = False
         
         # initilaize subscribers
         self.left_sub = Subscriber(self, Image, '/cam_sync/cam0/image_rect')
@@ -49,9 +61,6 @@ class CuvslamStereo(Node):
         self.sync.registerCallback(self.slam_callback)
 
         self.bridge = CvBridge()
-
-        # to save trajectory data to csv upon node shutdown
-        self.trajectory_data = []
 
         self.visualization = False
         if self.visualization:
@@ -92,8 +101,10 @@ class CuvslamStereo(Node):
             colors=[[255, 0, 0], [0, 255, 0], [0, 0, 255]],
             labels=['[x]', '[y]', '[z]']
         ), static=True)
+        
+        self.get_logger().info("Rerun visualization initialized")
 
-    def _initialize_cvslam_from_camera_info(self, left_info, right_info):
+    def _initialize_cuvslam_from_camera_info(self, left_info, right_info):
         # grab camera width and height
         width_l = left_info.width
         height_l = left_info.height
@@ -146,19 +157,24 @@ class CuvslamStereo(Node):
         self.get_logger().info(f"Rig initialized with cameras: {rig.cameras}")
 
         # initialize the cuvslam tracker
-        cfg = cuvslam.Tracker.OdometryConfig(
+        odom_cfg = cuvslam.Tracker.OdometryConfig(
             async_sba=False,
             enable_final_landmarks_export=True,
-            horizontal_stereo_camera=True
+            horizontal_stereo_camera=True,
+            use_gpu = True
+        )
+        slam_cfg = cuvslam.Tracker.SlamConfig(
+            sync_mode = False,
+            use_gpu = True
         )
 
         # initialize the tracker
-        self.tracker = cuvslam.Tracker(rig, cfg)
-
+        self.tracker = cuvslam.Tracker(rig, odom_cfg, slam_cfg)
     
     def slam_callback(self, left, right, left_info, right_info):
+        # Initialize tracker
         if self.initialize_tracker is False:
-            self._initialize_cvslam_from_camera_info(left_info, right_info)
+            self._initialize_cuvslam_from_camera_info(left_info, right_info)
             self.initialize_tracker = True
 
         # grab the left and right images
@@ -170,14 +186,27 @@ class CuvslamStereo(Node):
         timestamp = Time.from_msg(left_stamp).nanoseconds
 
         # feed the images to the cuvslam tracker
-        odom_pose_estimate,_ = self.tracker.track(timestamp, [left_img, right_img])
+        odom_pose_estimate, slam_pose = self.tracker.track(timestamp, [left_img, right_img])
+
+        # error check odometry estimate
+        if odom_pose_estimate.world_from_rig is None:
+            self.get_logger().info(f"Failed to track frame {timestamp}")
+            return
 
         odom_pose = odom_pose_estimate.world_from_rig.pose
 
-        # save to trajectory csv
-        self.trajectory_data.append({
-            'timestamp': timestamp,
-            'x': float(odom_pose.translation[0]),
+        # get loop closure poses
+        current_lc_poses = self.tracker.get_loop_closure_poses()
+        if (current_lc_poses and 
+            (not self.loop_closure_poses or 
+            not np_array_equal(current_lc_poses[-1].pose.translation, self.loop_closure_poses[-1]))):
+            self.loop_closure_poses.append(current_lc_poses[-1].pose.translation)  
+
+        # save to odometry trajectory csv
+        ros_time_ns = self.get_clock().now().nanoseconds
+        self.odom_pose_estimates.append({
+            'timestamp': ros_time_ns,               # currenlty set to grab current time because comparing based on playing rosbags
+            'x': float(odom_pose.translation[0]),   # might have to change back to image timestamp later
             'y': float(odom_pose.translation[1]),
             'z': float(odom_pose.translation[2]),
             'qx': float(odom_pose.rotation[0]),
@@ -185,6 +214,19 @@ class CuvslamStereo(Node):
             'qz': float(odom_pose.rotation[2]),
             'qw': float(odom_pose.rotation[3]),
         })
+
+        # save slam pose
+        self.slam_poses.append({
+            'timestamp': ros_time_ns,
+            'x': float(slam_pose.translation[0]),
+            'y': float(slam_pose.translation[1]),
+            'z': float(slam_pose.translation[2]),
+            'qx': float(slam_pose.rotation[0]),
+            'qy': float(slam_pose.rotation[1]),
+            'qz': float(slam_pose.rotation[2]),
+            'qw': float(slam_pose.rotation[3]),
+        })
+        
 
         # publish the odometry
         odom_msg = Odometry()
@@ -210,13 +252,18 @@ class CuvslamStereo(Node):
         landmark_xyz = [l.coords for l in landmarks]
         landmarks_colors = [self._color_from_id(l.id) for l in landmarks]
         self.trajectory.append(odom_pose.translation)
+        self.trajectory_slam.append(slam_pose.translation)
 
         # Visualize with rerun gui
         if self.rerun_visualization:
             # Send results to rerun for visualization
             rr.set_time_nanos("frame", timestamp)
             rr.log('trajectory', rr.LineStrips3D(self.trajectory))
+            rr.log('trajectory_slam', rr.LineStrips3D(self.trajectory_slam))
             rr.log('final_landmarks', rr.Points3D(list(final_landmarks.values()), radii=0.1))
+            rr.log('loop_closure_poses', rr.Points3D(
+                self.loop_closure_poses, radii=1.2, colors=[[255, 0, 0]]
+            ))
             rr.log('cam_sync', rr.Transform3D(
                 translation=odom_pose.translation,
                 quaternion=odom_pose.rotation
@@ -259,6 +306,22 @@ class CuvslamStereo(Node):
         NotImplementedError
 
 
+def create_tum_filename(filename):
+    """Create a file name with date and time as filename_YYYYMMDD_HHMMSS.txt (TUM format)"""
+    now = datetime.datetime.now()
+    date_time = now.strftime('%Y%m%d_%H%M%S')
+
+    return f"{filename}_{date_time}.txt"
+
+
+def save_trajectory_tum(filepath, poses):
+    """Save trajectory in TUM format: timestamp tx ty tz qx qy qz qw"""
+    with open(filepath, 'w') as f:
+        for pose in poses:
+            timestamp_sec = pose['timestamp'] / 1e9
+            line = f"{timestamp_sec:.9f} {pose['x']} {pose['y']} {pose['z']} {pose['qx']} {pose['qy']} {pose['qz']} {pose['qw']}\n"
+            f.write(line)
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -269,9 +332,15 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        # Before shutting down, save the trajectory to a csv
-        trajectory_df = pd.DataFrame(odometry_publisher.trajectory_data)
-        trajectory_df.to_csv('trajectory.csv', index=False)
+        # Before shutting down, save the trajectory in TUM format
+        results_dir = Path(__file__).resolve().parent.parent.parent.parent / 'results'
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        odom_filename = results_dir / create_tum_filename('odom_trajectory')
+        save_trajectory_tum(odom_filename, odometry_publisher.odom_pose_estimates)
+
+        slam_filename = results_dir / create_tum_filename('slam_trajectory')
+        save_trajectory_tum(slam_filename, odometry_publisher.slam_poses)
 
         # shutdown node
         odometry_publisher.destroy_node()

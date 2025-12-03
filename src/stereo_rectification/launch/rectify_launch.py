@@ -8,7 +8,7 @@ import yaml
 def generate_launch_description():
     # Get the path to the config file
     pkg_share = get_package_share_directory('stereo_rectification')
-    config_file = os.path.join(pkg_share, 'config', 'payload2_20250828_1301_calibBefore_ros1_debayered-camchain.yaml')
+    config_file = os.path.join(pkg_share, 'config', 'payload1_20250828_1257_calibBefore_ros1_debayered-camchain-imucam.yaml')
     
     # Load the YAML file
     with open(config_file, 'r') as f:
