@@ -1,6 +1,7 @@
 import numpy as np
 import cuvslam
 import rclpy
+import time
 import rerun as rr
 import rerun.blueprint as rrb
 import datetime
@@ -172,6 +173,8 @@ class CuvslamStereo(Node):
         self.tracker = cuvslam.Tracker(rig, odom_cfg, slam_cfg)
     
     def slam_callback(self, left, right, left_info, right_info):
+        callback_start = time.perf_counter()
+        
         # Initialize tracker
         if self.initialize_tracker is False:
             self._initialize_cuvslam_from_camera_info(left_info, right_info)
@@ -299,6 +302,10 @@ class CuvslamStereo(Node):
             self.traj_fig.canvas.draw()
             self.traj_fig.canvas.flush_events()
 
+        # Log callback execution time
+        callback_elapsed_ms = (time.perf_counter() - callback_start) * 1000
+        self.get_logger().info(f"Callback time: {callback_elapsed_ms:.2f} ms")
+
 
     def visualize_trajectory(self):
 
@@ -333,7 +340,7 @@ def main(args=None):
         pass
     finally:
         # Before shutting down, save the trajectory in TUM format
-        results_dir = Path(__file__).resolve().parent.parent.parent.parent / 'results'
+        results_dir = Path(__file__).resolve().parent.parent.parent.parent / 'output' / 'trajectories'
         results_dir.mkdir(parents=True, exist_ok=True)
 
         odom_filename = results_dir / create_tum_filename('odom_trajectory')

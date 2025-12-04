@@ -1,4 +1,5 @@
 import rclpy
+import time
 from rclpy.node import Node
 from std_msgs.msg import String
 import numpy as np
@@ -271,6 +272,8 @@ class RectifyStereoImgs(Node):
         cv2.imwrite(right_rect_path, rect_r)
 
     def rectify(self, left, right):
+        callback_start = time.perf_counter()
+        
         # grab left and right images
         left_img = self.bridge.compressed_imgmsg_to_cv2(left)
         right_img = self.bridge.compressed_imgmsg_to_cv2(right)
@@ -331,6 +334,10 @@ class RectifyStereoImgs(Node):
             stereo_pair = np.hstack((rect_l, rect_r))
             cv2.imshow('Rectified Stereo Pair', stereo_pair)
             cv2.waitKey(1)
+
+        # Log callback execution time
+        callback_elapsed_ms = (time.perf_counter() - callback_start) * 1000
+        self.get_logger().info(f"Rectify callback time: {callback_elapsed_ms:.2f} ms")
 
 
 def main(args=None):
