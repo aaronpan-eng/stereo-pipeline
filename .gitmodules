@@ -8,3 +8,9 @@
 [submodule "submodules/pycuvslam"]
 	path = submodules/pycuvslam
 	url = git@github.com:NVlabs/PyCuVSLAM.git
+[submodule "submodules/droid-slam"]
+	path = submodules/droid-slam
+	url = git@github.com:princeton-vl/DROID-SLAM.git
+[submodule "submodules/orb_slam3"]
+	path = submodules/orb_slam3
+	url = git@github.com:UZ-SLAMLab/ORB_SLAM3.git
