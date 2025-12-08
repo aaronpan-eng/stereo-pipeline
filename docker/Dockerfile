@@ -91,13 +91,6 @@ RUN pip3 install \
     opencv-python \
     pandas
 
-# Install packages for droidslam
-RUN pip3 install --ignore-installed \
-    torch \
-    lietorch \
-    tqdm \
-    pathlib
-
 # Initialize rosdep
 RUN rosdep init || true && rosdep update
 
