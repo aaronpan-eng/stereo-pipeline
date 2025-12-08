@@ -30,12 +30,12 @@ else
        -v $XSOCK:$XSOCK \
        -v $XAUTH:$XAUTH \
        -e NVIDIA_DRIVER_CAPABILITIES=all \
-       -v ../submodules/pycuvslam:/pycuvslam \
-       -v ../submodules/NeuROAM:/workspace/NeuROAM \
+       -v ../submodules:/workspace/submodules \
        -v ../src:/workspace/src \
        -v ../data:/workspace/data \
-       -v ../submodules/fast_LIMO:/workspace/fast_LIMO \
        -v /media/aaron/T5\ EVO1/payload1_20250828_1405:/workspace/data/payload1_20250828_1405 \
+       -v /media/aaron/T5\ EVO1/2025-10-PRANCE:/workspace/data/2025-10-PRANCE \
+       -v ../utils:/workspace/utils \
        -v /tmp/.X11-unix:/tmp/.X11-unix \
        --network host \
        ros2-pycuvslam \
@@ -60,9 +60,9 @@ else
             export RMW_IMPLEMENTATION=rmw_zenoh_cpp
 
 	    # Pycuvslam install
-            if [ -d '/pycuvslam/bin/x86_64' ]; then
+            if [ -d '/workspace/submodules/pycuvslam/bin/x86_64' ]; then
                 echo 'Installing pycuvslam...'
-                pip3 install -e /pycuvslam/bin/x86_64
+                pip3 install -e /workspace/submodules/pycuvslam/bin/x86_64
                 echo 'pycuvslam installed successfully'
             fi
             exec bash
