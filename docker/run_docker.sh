@@ -33,6 +33,7 @@ else
        -v ../submodules:/workspace/submodules \
        -v ../src:/workspace/src \
        -v ../data:/workspace/data \
+       -v ../output:/workspace/output \
        -v /media/aaron/T5\ EVO1/payload1_20250828_1405:/workspace/data/payload1_20250828_1405 \
        -v /media/aaron/T5\ EVO1/2025-10-PRANCE:/workspace/data/2025-10-PRANCE \
        -v ../utils:/workspace/utils \
