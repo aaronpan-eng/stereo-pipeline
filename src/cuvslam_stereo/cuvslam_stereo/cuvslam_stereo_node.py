@@ -16,6 +16,7 @@ from rclpy.time import Time
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 from cv_bridge import CvBridge
 from cuvslam_stereo.utils import combine_poses, transform_landmarks
+import numpy as np
 
 
 class CuvslamStereo(Node):
@@ -202,7 +203,7 @@ class CuvslamStereo(Node):
         current_lc_poses = self.tracker.get_loop_closure_poses()
         if (current_lc_poses and 
             (not self.loop_closure_poses or 
-            not np_array_equal(current_lc_poses[-1].pose.translation, self.loop_closure_poses[-1]))):
+            not np.array_equal(current_lc_poses[-1].pose.translation, self.loop_closure_poses[-1]))):
             self.loop_closure_poses.append(current_lc_poses[-1].pose.translation)  
 
         # save to odometry trajectory csv
