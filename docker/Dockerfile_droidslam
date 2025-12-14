@@ -1,23 +1,26 @@
 # Use NVIDIA CUDA 12.8 devel image
-FROM nvidia/cuda:12.8.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.6.0-devel-ubuntu22.04
 
 # Basic tools
 RUN apt-get update && apt-get install -y \
-    python3-pip python3-dev git build-essential cmake wget \
+    python3-pip python3-dev git build-essential cmake wget libeigen3-dev\
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip
-RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install --upgrade pip setuptools wheel
 
 # Install Python packages
-RUN pip install torch --index-url https://download.pytorch.org/whl/cu128 \
+RUN pip install torch --index-url https://download.pytorch.org/whl/cu126 \
     tqdm
 
 # torch-scatter (CUDA 12.8 binary)
-RUN pip install torch-scatter --index-url https://data.pyg.org/whl/torch-2.2.0+cu128.html
+RUN pip install torch-scatter -f https://data.pyg.org/whl/torch-2.6.0+cu126.html
 
 # Lietorch from GitHub
 RUN pip install git+https://github.com/princeton-vl/lietorch.git
+
+# Extra Python deps
+RUN pip3 install tqdm opencv-python numpy "<2"
 
 # Set default python
 CMD ["python3"]
