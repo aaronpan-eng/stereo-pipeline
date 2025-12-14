@@ -19,7 +19,7 @@ Todo
 Contains ros2 nodes for:
 - **Stereo image rectification** from calibrated camera pairs
 - **Visual odometry** using NVIDIA cuVSLAM (GPU-accelerated)
-- **WIP - ccupancy grid output** with NeuStereo
+- **WIP - depth map output** with NeuStereo
 
 Evaluation of NeuRoam data with fast_LIMO
 - **LiDAR-inertial odometry** using fast_LIMO in `sumbodules/fast_LIMO`
