@@ -105,8 +105,8 @@ class RectifyStereoImgs(Node):
 
         
         # grab left and right images and calibration data
-        self.left_img = Subscriber(self, CompressedImage, '/cam_sync/cam0/image_raw/compressed')
-        self.right_img = Subscriber(self, CompressedImage, '/cam_sync/cam1/image_raw/compressed')
+        self.left_img = Subscriber(self, Image, '/cam_sync/cam0/image_raw')
+        self.right_img = Subscriber(self, Image, '/cam_sync/cam1/image_raw')
 
         # sync messages
         self.sync = ApproximateTimeSynchronizer([self.left_img, self.right_img],queue_size=20,slop=0.01)
@@ -115,6 +115,13 @@ class RectifyStereoImgs(Node):
 
     def recalibrate(self, left, right):
         NotImplementedError()
+
+    def _parse_pckl(self, file):
+        NotImplementedError() #TODO: add support format for intrinsic format in .pckl
+
+    def _parse_kalibr(self, file):
+        NotImplementedError() #TODO: add support format for intrinsic format in kalibr .yaml
+
 
     def _compute_fundamental_matrix(self):
         # rotation and translation 
@@ -275,8 +282,8 @@ class RectifyStereoImgs(Node):
         callback_start = time.perf_counter()
         
         # grab left and right images
-        left_img = self.bridge.compressed_imgmsg_to_cv2(left)
-        right_img = self.bridge.compressed_imgmsg_to_cv2(right)
+        left_img = self.bridge.imgmsg_to_cv2(left)
+        right_img = self.bridge.imgmsg_to_cv2(right)
         
         # rectify left and right images
         rect_l = cv2.remap(left_img, self.map1_x, self.map1_y, cv2.INTER_LINEAR)
