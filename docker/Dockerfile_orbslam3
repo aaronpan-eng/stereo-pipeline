@@ -1,0 +1,114 @@
+FROM ubuntu:18.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install basic dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    gnupg2 \
+    lsb-release \
+    software-properties-common \
+    libboost-all-dev \
+    libeigen3-dev \
+    libssl-dev \
+    libxkbcommon-dev \
+    wayland-protocols \
+    libepoxy-dev \
+    libglew-dev \
+    catch2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Enable universe repository for additional packages
+RUN add-apt-repository universe
+
+# # Install newer CMake from Kitware (required for Pangolin)
+# RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null \
+#     && apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" \
+#     && apt-get update \
+#     && apt-get install -y cmake \
+#     && rm -rf /var/lib/apt/lists/*
+
+# Install ROS Melodic
+RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' \
+    && curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - \
+    && apt-get update \
+    && apt-get install -y \
+    ros-melodic-desktop-full \
+    python-rosdep \
+    python-rosinstall \
+    python-rosinstall-generator \
+    python-wstool \
+    && rm -rf /var/lib/apt/lists/*
+
+# Initialize rosdep
+RUN rosdep init && rosdep update
+
+# Install OpenCV dependencies
+RUN apt-get update && apt-get install -y \
+    libgtk2.0-dev \
+    pkg-config \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libtbb2 \
+    libtbb-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libdc1394-22-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build and install OpenCV 4.4.0 (compatible with ORB_SLAM3)
+WORKDIR /tmp
+RUN git clone --branch 4.4.0 --depth 1 https://github.com/opencv/opencv.git \
+    && cd opencv \
+    && mkdir build && cd build \
+    && cmake -D CMAKE_BUILD_TYPE=Release \
+             -D CMAKE_INSTALL_PREFIX=/usr/local \
+             -D WITH_TBB=ON \
+             -D WITH_V4L=ON \
+             -D WITH_QT=OFF \
+             -D WITH_OPENGL=ON \
+             .. \
+    && make -j$(nproc) \
+    && make install \
+    && cd /tmp && rm -rf opencv
+
+# Install Pangolin (for visualization)
+WORKDIR /tmp
+RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git \
+    && cd Pangolin \
+    && ./scripts/install_prerequisites.sh recommended || true \
+    && cmake -B build \
+    && cmake --build build \
+    && cd /tmp && rm -rf Pangolin
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Clone ORB_SLAM3
+RUN git clone https://github.com/UZ-SLAMLab/ORB_SLAM3.git
+
+# Build ORB_SLAM3
+WORKDIR /workspace/ORB_SLAM3
+RUN chmod +x build.sh \
+    && ./build.sh
+
+# Build ROS package for ORB_SLAM3
+RUN chmod +x build_ros.sh \
+    && /bin/bash -c "source /opt/ros/melodic/setup.bash && export ROS_PACKAGE_PATH=/workspace/ORB_SLAM3/Examples/ROS:\$ROS_PACKAGE_PATH && ./build_ros.sh"
+
+# Set up environment
+RUN echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+ENV LD_LIBRARY_PATH=/workspace/ORB_SLAM3/Thirdparty/DBoW2/lib:/workspace/ORB_SLAM3/Thirdparty/g2o/lib:/workspace/ORB_SLAM3/lib:/usr/local/lib
+ENV ROS_PACKAGE_PATH=/workspace/ORB_SLAM3/Examples/ROS:/opt/ros/melodic/share
+
+WORKDIR /workspace
+
+# Set entrypoint
+CMD ["/bin/bash"]
