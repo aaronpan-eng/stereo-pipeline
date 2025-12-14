@@ -1,6 +1,6 @@
 # Stereo Pipeline
 
-ROS2-based stereo visual odometry and depth estimation pipline. Mainly for use in NeuFieldRobotics Lab.
+(WORK IN PROGRESS!!) ROS2-based stereo visual odometry and depth estimation pipline. Mainly for use in NeuFieldRobotics Lab.
 
 ## Overview
 Todo
