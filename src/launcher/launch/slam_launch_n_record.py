@@ -12,21 +12,21 @@ def generate_launch_description():
     # Rectify raw stereo images based on camera intrinsics/extrinsics
     rectify = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
-            os.path.join(get_package-get_package_share_directory('stereo_rectification'), 'launch'),
+            os.path.join(get_package_share_directory('stereo_rectification'), 'launch'),
             '/rectify_launch.py'])
     )
 
     # Cuvslam stereo node
     cuvslam_stereo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
-            os.path.join(get_package-get_package_share_directory('cuvslam_stereo'), 'launch'),
+            os.path.join(get_package_share_directory('cuvslam_stereo'), 'launch'),
             '/cuvslam_stereo_launch.py'])
     )
 
     # Fast LIMO node
     fast_LIMO = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
-            os.path.join(get_package-get_package_share_directory('fast_limo'), 'launch'),
+            os.path.join(get_package_share_directory('fast_limo'), 'launch'),
             '/fast_limo.launch.py'])
     )
 
