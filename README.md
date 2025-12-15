@@ -15,6 +15,7 @@ Todo
 - [x] Create NeuStereo ROS2 node
 - [ ] ** Convert nodes into cpp
 - [x] Github action to check cuvslam-ros2 Dockerfile
+- [ ] Add IMU for VIO and compare traj once dslam comparison sorted
 
 
 Contains ros2 nodes for:
