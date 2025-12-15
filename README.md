@@ -7,13 +7,14 @@ Todo
 - [ ] Evaluate SLAM algos on drone data
   - [x] cuvslam traj
   - [x] droidslam traj
-  - [ ] orbslam3 traj
-  - [ ] compare with all and troubleshoot if needed
+  - [x] orbslam3 traj (after parameter tuning - still doesnt track well)
+  - [x] compare with all
+  - [ ] troubleshoot trajectory differences
 - [ ] Integrate Vimba stuff for AlliedVision cameras
 - [ ] Check out suggestion for cuda accelerated rectification package (https://docs.nvidia.com/vpi/algo_ldc.html)
-- [ ] Create NeuStereo ROS2 node
-- [ ] Convert nodes into cpp
-- [ ] Github action to check Dockerfiles
+- [x] Create NeuStereo ROS2 node
+- [ ] ** Convert nodes into cpp
+- [x] Github action to check cuvslam-ros2 Dockerfile
 
 
 Contains ros2 nodes for:
