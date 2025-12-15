@@ -19,6 +19,6 @@ jobs:
         
     - name: Build the Docker image
       run: |
-        docker build ./submodules/pycuvslam/docker/ --file Dockerfile.realsense-x86 -t pycuvslam:realsense-x86
+        docker build ./submodules/pycuvslam/docker/ -f ./submodules/pycuvslam/docker/Dockerfile.realsense-x86 -t pycuvslam:realsense-x86
         docker build ./docker/ -t cuvslam-ros2:latest
         
