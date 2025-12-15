@@ -1,3 +1,5 @@
+![Experimental](https://img.shields.io/badge/experimental-work%20in%20progress-red)
+
 # Stereo Pipeline
 
 (WORK IN PROGRESS!!) ROS2-based stereo visual odometry and depth estimation pipline. Mainly for use in NeuFieldRobotics Lab.
