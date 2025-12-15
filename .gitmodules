@@ -14,3 +14,6 @@
 [submodule "submodules/orb_slam3"]
 	path = submodules/orb_slam3
 	url = git@github.com:UZ-SLAMLab/ORB_SLAM3.git
+[submodule "submodules/NeuStereo"]
+	path = submodules/NeuStereo
+	url = git@github.com:aniket-gupta1/NeuStereo.git

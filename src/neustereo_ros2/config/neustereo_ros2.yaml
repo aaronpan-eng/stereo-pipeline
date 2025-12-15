@@ -1,0 +1,4 @@
+neu_stereo_node:
+  ros__parameters:
+    model_filename: ""
+    display: true
