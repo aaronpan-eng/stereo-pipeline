@@ -10,7 +10,7 @@ data/**/*.bag
 data/**/metadata.yaml
 data/stereo_images*
 !data/.gitkeep
-
+data/dataset/
 
 
 # Output direcoty
