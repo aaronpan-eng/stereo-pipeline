@@ -17,6 +17,7 @@
 [submodule "submodules/NeuStereo"]
 	path = submodules/NeuStereo
 	url = git@github.com:aniket-gupta1/NeuStereo.git
+	branch = experimental
 [submodule "submodules/vimbax_ros2_driver"]
 	path = submodules/vimbax_ros2_driver
 	url = git@github.com:alliedvision/vimbax_ros2_driver.git

@@ -1,11 +1,14 @@
-![Experimental](https://img.shields.io/badge/experimental-work%20in%20progress-red)
-
 # Stereo Pipeline
+
+![Experimental](https://img.shields.io/badge/experimental-work%20in%20progress-red)
 
 (WORK IN PROGRESS!!) ROS2-based stereo visual odometry and depth estimation pipline. Mainly for use in NeuFieldRobotics Lab.
 
 ## Overview
-Todo
+### Todo:
+
+*In **Bold** are high priority tasks*
+
 - [ ] Evaluate SLAM algos on drone data
   - [x] cuvslam traj
   - [x] droidslam traj
@@ -13,11 +16,14 @@ Todo
   - [x] compare with all
   - [ ] troubleshoot trajectory differences
 - [ ] Integrate Vimba stuff for AlliedVision cameras
-- [ ] Check out suggestion for cuda accelerated rectification package (https://docs.nvidia.com/vpi/algo_ldc.html)
+- [ ] **Check out suggestion for cuda accelerated rectification package (https://docs.nvidia.com/vpi/algo_ldc.html)**
 - [x] Create NeuStereo ROS2 node
+  - [x] Get NeuStereo ROS2 disparity output working
 - [ ] ** Convert nodes into cpp
-- [x] Github action to check cuvslam-ros2 Dockerfile
-- [ ] Add IMU for VIO and compare traj once dslam comparison sorted
+- [ ] Github action to check cuvslam-ros2 Dockerfile
+  - [ ] Corrrect Github action to check cuvslam-ros2 Dockerfile
+  - [x] Initial Github action to check Dockerfile
+- [ ] **Add IMU for VIO and compare traj once dslam comparison sorted**
 
 
 Contains ros2 nodes for:
