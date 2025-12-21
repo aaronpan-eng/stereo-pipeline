@@ -89,7 +89,13 @@ RUN apt-get update && apt-get install -y \
 RUN pip3 install \
     "numpy<2" \
     opencv-python \
-    pandas
+    pandas \
+    huggingface_hub \
+    easydict \
+    coloredlogs
+
+# Install PyTorch with CUDA 11.7 support
+RUN pip3 install torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu117
 
 # Initialize rosdep
 RUN rosdep init || true && rosdep update

@@ -17,7 +17,13 @@ neustereo_path = workspace_root / 'submodules' / 'NeuStereo'
 sys.path.insert(0, str(neustereo_path))
 
 from NeuStereo.neustereo import NeuStereo
-from utils.utils import load_config
+from utils.utils import load_config, InputPadder
+from dataloader import transforms
+
+# --- Constants ---
+# Reference: https://github.com/aniket-gupta1/NeuStereo/blob/experimental/evaluate_stereo.py#L19-L21
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
 
 
 class NeuStereoNode(Node):
@@ -49,6 +55,12 @@ class NeuStereoNode(Node):
 
         # Load weights from the .pth file
         self._load_model()
+
+        # Set up transforms
+        self.transforms = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+        ])
 
         # Set publishers for disparity and depth
         self.disparity_pub = self.create_publisher(Image, '/neustereo/disparity', 10)
@@ -148,12 +160,22 @@ class NeuStereoNode(Node):
         left_resized = cv2.resize(left_rgb, (target_size[1], target_size[0]), interpolation=cv2.INTER_LINEAR) #TODO: check interpolation
         right_resized = cv2.resize(right_rgb, (target_size[1], target_size[0]), interpolation=cv2.INTER_LINEAR)
 
-        # Convert to tensor
-        left_tensor = torch.from_numpy(left_resized).permute(2, 0, 1).float() # permute changes from (h,w,ch) --> (ch,w,h)
-        right_tensor = torch.from_numpy(right_resized).permute(2, 0, 1).float()
+        # # Convert to tensor
+        # left_tensor = torch.from_numpy(left_resized).permute(2, 0, 1).float() # permute changes from (h,w,ch) --> (ch,w,h)
+        # right_tensor = torch.from_numpy(right_resized).permute(2, 0, 1).float()
 
-        left_tensor = left_tensor.unsqueeze(0) # unsqueeze to change to (ch,w,h) --> (1,ch,w,h)
+        # left_tensor = left_tensor.unsqueeze(0) # unsqueeze to change to (ch,w,h) --> (1,ch,w,h)
+        # right_tensor = right_tensor.unsqueeze(0)
+
+        sample = {'left': left_resized, 'right': right_resized}
+        sample = self.transforms(sample)
+        left_tensor = sample['left']
+        left_tensor = left_tensor.unsqueeze(0)
+        right_tensor = sample['right']
         right_tensor = right_tensor.unsqueeze(0)
+
+        self.get_logger().info(f"Left tensor shape: {left_tensor.shape}")
+        self.get_logger().info(f"Right tensor shape: {right_tensor.shape}")
 
         combined_img = np.hstack((left, right))
         cv2.imshow("Combined Image", combined_img)
@@ -190,14 +212,18 @@ class NeuStereoNode(Node):
         # Reference: https://github.com/aniket-gupta1/NeuStereo/blob/experimental/evaluate_stereo.py#L294-L298
         left_half = left_tensor.to(self.device).half()
         right_half = right_tensor.to(self.device).half()
-        
+        padder = InputPadder(left_half.shape, divis_by=32)  
+        left_half, right_half = padder.pad(left_half, right_half)
+
         # reference: https://github.com/aniket-gupta1/NeuStereo/blob/experimental/evaluate_stereo.py#L306-L313
         with torch.no_grad(), torch.amp.autocast('cuda', enabled=True):
             flow_list = self.model(left_half, right_half)
 
         # Grab the most refined disparity from the list (last one)
         # Shape: [1, 1, H, W] -> [H, W]
-        disparity = flow_list[-1].squeeze().cpu().numpy()  # Keep as float!
+        disparity = flow_list[-1]
+        # unpad the disparity
+        disparity = padder.unpad(disparity)[0].squeeze(0).cpu().numpy()
         self.get_logger().info(f"Disparity range: {disparity.min()} to {disparity.max()}")
         
         # Convert disparity to depth using camera intrinsics
