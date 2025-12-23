@@ -31,15 +31,19 @@ class NeuStereoNode(Node):
         super().__init__('neu_stereo_node')
 
         # Declare parameters from config yaml file
-        self.declare_parameter('display', False)
+        self.declare_parameter('display_disparity', False)
+        self.declare_parameter('display_stereo_resized', False)
+        self.declare_parameter('display_stereo', False)
         self.declare_parameter('model_filename', '')
-        self.declare_parameter('config_file','')
+        self.declare_parameter('model_config_file','')
 
         # Grab parameters from file
         model_filename_param = self.get_parameter('model_filename').value
-        self.display = self.get_parameter('display').value
-        config_file = self.get_parameter('config_file').value
-        self.config_path = neustereo_path / 'configs' / config_file
+        self.display_disparity = self.get_parameter('display_disparity').value
+        self.display_stereo_resized = self.get_parameter('display_stereo_resized').value
+        self.display_stereo = self.get_parameter('display_stereo').value
+        model_config_file = self.get_parameter('model_config_file').value
+        self.config_path = neustereo_path / 'configs' / model_config_file
         
         # TODO: see if this block can be simplified below
         # Resolve model filename path
@@ -56,7 +60,8 @@ class NeuStereoNode(Node):
         # Load weights from the .pth file
         self._load_model()
 
-        # Set up transforms
+        # Set image transformation pipeline
+        # purpose: convert images to tensors and normalize them based on ImageNet statistics
         self.transforms = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
@@ -107,6 +112,7 @@ class NeuStereoNode(Node):
             self.get_logger().warn("No weights file specified!")
         
         #TODO: if not a checkpoint - load appropriately
+        # currently only supports checkpoint loading
         
         # Move model to device and set eval mode for inference
         self.model.to(self.device)
@@ -167,6 +173,8 @@ class NeuStereoNode(Node):
         # left_tensor = left_tensor.unsqueeze(0) # unsqueeze to change to (ch,w,h) --> (1,ch,w,h)
         # right_tensor = right_tensor.unsqueeze(0)
 
+        # Convert to tensor and normalize based on ImageNet statistics
+        # uses the transforms.py file from NeuStereo
         sample = {'left': left_resized, 'right': right_resized}
         sample = self.transforms(sample)
         left_tensor = sample['left']
@@ -177,11 +185,14 @@ class NeuStereoNode(Node):
         self.get_logger().info(f"Left tensor shape: {left_tensor.shape}")
         self.get_logger().info(f"Right tensor shape: {right_tensor.shape}")
 
-        combined_img = np.hstack((left, right))
-        cv2.imshow("Combined Image", combined_img)
-        combined_resized = np.hstack((left_resized, right_resized))
-        cv2.imshow("Combined Resized Image", combined_resized)
-        cv2.waitKey(1)
+        if self.display_stereo:
+            combined_img = np.hstack((left, right))
+            cv2.imshow("Combined Image", combined_img)
+            cv2.waitKey(1)
+        if self.display_stereo_resized:
+            combined_resized = np.hstack((left_resized, right_resized))
+            cv2.imshow("Combined Resized Image", combined_resized)
+            cv2.waitKey(1)
 
         return left_tensor, right_tensor
 
@@ -243,12 +254,13 @@ class NeuStereoNode(Node):
         # self.depth_pub.publish(depth_msg)
 
         
-        if self.display:
+        if self.display_disparity:
             # Normalize disparity for visualization
             # KITTI max disparity is ~256, adjust based on your data
             # max_disp = 256.0
             # disp_vis = np.clip(disparity, 0, max_disp)
             # disp_vis = (disp_vis / max_disp * 255).astype(np.uint8)
+            # TODO: check if any normlaization or clipping is needed here based on NeuStereo repo
             disp_vis = disparity.astype(np.uint8)
             disp_colormap = cv2.applyColorMap(disp_vis, cv2.COLORMAP_VIRIDIS)
             

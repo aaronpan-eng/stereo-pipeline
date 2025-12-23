@@ -6,11 +6,10 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    # Config file argument for cmd line
+    # Config file argument for cmd line (REQUIRED - no default)
     config_file_arg = DeclareLaunchArgument(
         'config_yaml',
-        default_value='UAS1_fitness_trail_2025-10-15.yaml',
-        description='YAML filename with .yaml extension with camera calibration parameters'
+        description='REQUIRED: YAML filename with camera calibration parameters (e.g. payload1_20250828.yaml)'
     )
 
     # Get config file path

@@ -7,18 +7,36 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     # Config file argument
-    config_file_arg = DeclareLaunchArgument(
-        'config_yaml',
+    model_config_file_arg = DeclareLaunchArgument(
+        'model_config_yaml',
         default_value='neustereo_ros2.yaml',
-        description='YAML config file for NeuStereo node'
+        description='YAML config file for NeuStereo model'
     )
 
     # Get config file path
     config_file_path = PathJoinSubstitution([
         FindPackageShare('neustereo_ros2'),
         'config',
-        LaunchConfiguration('config_yaml')
+        LaunchConfiguration('model_config_yaml')
     ])
+
+    # Override parameters with launch arguments
+    model_filename_arg = DeclareLaunchArgument(
+        'model_filename', 
+        description='Override model filename in config file',
+    )
+    display_disparity_arg = DeclareLaunchArgument(
+        'display_disparity', 
+        description='Override display disparity flag in config file',
+    )
+    display_stereo_resized_arg = DeclareLaunchArgument(
+        'display_stereo_resized', 
+        description='Override display stereo resized flag in config file',
+    )
+    display_stereo_arg = DeclareLaunchArgument(
+        'display_stereo', 
+        description='Override display stereo flag in config file',
+    )
 
     # NeuStereo node
     neustereo_node = Node(
@@ -26,12 +44,25 @@ def generate_launch_description():
         executable='neu_stereo_node',
         name='neu_stereo_node',
         output='screen',
-        emulate_tty=True,
-        parameters=[config_file_path],
+        emulate_tty=True, # Show logs in terminal
+        parameters=[
+            config_file_path,
+            {
+                'model_filename': LaunchConfiguration('model_filename'),
+                'display_disparity': LaunchConfiguration('display_disparity'),
+                'display_stereo_resized': LaunchConfiguration('display_stereo_resized'),
+                'display_stereo': LaunchConfiguration('display_stereo'),
+                'model_config_file': LaunchConfiguration('model_config_file'),
+            }
+        ],
     )
 
     return LaunchDescription([
-        config_file_arg,
+        model_config_file_arg,
+        model_filename_arg,
+        display_disparity_arg,
+        display_stereo_resized_arg,
+        display_stereo_arg,
         neustereo_node
     ])
 
