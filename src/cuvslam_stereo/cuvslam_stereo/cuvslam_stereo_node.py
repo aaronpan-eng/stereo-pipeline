@@ -11,10 +11,9 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import Image, CameraInfo, Imu
 from rclpy.time import Time
 from message_filters import ApproximateTimeSynchronizer, Subscriber
-from geometry_msgs.msg import Imu
 from cv_bridge import CvBridge
 from cuvslam_stereo.utils import combine_poses, transform_landmarks
 import numpy as np
@@ -60,9 +59,9 @@ class CuvslamStereo(Node):
         self.left_sub = Subscriber(self, Image, '/cam_sync/cam0/image_rect')
         self.right_sub = Subscriber(self, Image, '/cam_sync/cam1/image_rect')
         self.left_info_sub = Subscriber(self, CameraInfo, '/cam_sync/cam0/rect_info')
-        self.right_info_sub = Subscriber(self, CameraInfo, '/cam_sync/cam1/rect_info')\
+        self.right_info_sub = Subscriber(self, CameraInfo, '/cam_sync/cam1/rect_info')
         
-        self.imu_sub = Subscriber(self, Imu, '/imu/data', 10)
+        # self.imu_sub = Subscriber(self, Imu, '/imu/data', 10)
 
         # initialize publishers
         self.pose_pub = self.create_publisher(Odometry, '/cuvslam/odometry', 10)
@@ -95,26 +94,27 @@ class CuvslamStereo(Node):
 
     def _initialize_rerun_visualization(self, cam_name):
         # Setup rerun visualizer
-        rr.init('ros2_cuvslam_stereo', strict=True, spawn=True)  # launch re-run instance
+        rr.init('stereo_pipeline', recording_id='stereo_pipeline_session', spawn=False)  # launch re-run instance
+        rr.connect()
 
-        # Setup rerun views
-        rr.send_blueprint(rrb.Blueprint(
-            rrb.TimePanel(state="collapsed"),
-            rrb.Vertical(
-                row_shares=[0.6, 0.4],
-                contents=[rrb.Spatial3DView(), rrb.Spatial2DView(origin=cam_name)]
-            )
-        ))
+        # # Setup rerun views
+        # rr.send_blueprint(rrb.Blueprint(
+        #     rrb.TimePanel(state="collapsed"),
+        #     rrb.Vertical(
+        #         row_shares=[0.6, 0.4],
+        #         contents=[rrb.Spatial3DView(), rrb.Spatial2DView(origin=cam_name)]
+        #     )
+        # ))
 
-        # Setup coordinate basis for root, cuvslam uses right-hand system with X-right, Y-down, Z-forward
-        rr.log("/", rr.ViewCoordinates.RIGHT_HAND_Y_DOWN, static=True)
+        # # Setup coordinate basis for root, cuvslam uses right-hand system with X-right, Y-down, Z-forward
+        # rr.log("/", rr.ViewCoordinates.RIGHT_HAND_Y_DOWN, static=True)
 
-        # Draw arrays in origin X-red, Y-green, Z-blue
-        rr.log("xyz", rr.Arrows3D(
-            vectors=[[50, 0, 0], [0, 50, 0], [0, 0, 50]],
-            colors=[[255, 0, 0], [0, 255, 0], [0, 0, 255]],
-            labels=['[x]', '[y]', '[z]']
-        ), static=True)
+        # # Draw arrays in origin X-red, Y-green, Z-blue
+        # rr.log("xyz", rr.Arrows3D(
+        #     vectors=[[50, 0, 0], [0, 50, 0], [0, 0, 50]],
+        #     colors=[[255, 0, 0], [0, 255, 0], [0, 0, 255]],
+        #     labels=['[x]', '[y]', '[z]']
+        # ), static=True)
         
         self.get_logger().info("Rerun visualization initialized")
 
