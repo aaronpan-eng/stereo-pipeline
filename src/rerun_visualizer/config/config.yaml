@@ -1,0 +1,4 @@
+rerun_visualizer:
+  ros__parameters:
+    rerun_app_id: 'stereo_pipeline'
+    recording_id: 'stereo_pipeline_session'
