@@ -7,17 +7,6 @@ from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
-    # Rerun visualization
-    rerun_visualizer = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('rerun_visualizer'),
-                'launch',
-                'rerun_visualizer_launch.py'
-            ])
-        )
-    )
-
     # Launch arg for rectify config (just the filename, child builds the full path)
     rectify_config_arg = DeclareLaunchArgument(
         'rectify_config_yaml',
@@ -74,7 +63,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        # rerun_visualizer,
         rectify_config_arg,
         rectify,
         cuvslam_stereo,
