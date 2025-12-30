@@ -175,7 +175,7 @@ class NeuStereoNode(Node):
         """
         # Orig size to upscale later
         self.original_size = (left.shape[0], left.shape[1]) # (H,W)
-        self.get_logger().info(f"Original size: {self.original_size}")
+        # self.get_logger().info(f"Original size: {self.original_size}")
 
         # Specify target size (H,W)
         target_size = (384, 768) #TODO: change this to pull from the NeuStereo yaml file or have it specified in the ros2 config
@@ -190,7 +190,7 @@ class NeuStereoNode(Node):
         # Convert from BGR --> RGB for pytorch
         left_rgb = cv2.cvtColor(left, cv2.COLOR_BGR2RGB)
         right_rgb = cv2.cvtColor(right, cv2.COLOR_BGR2RGB)
-        self.get_logger().info(f"Image dtype: {left_rgb.dtype}")
+        # self.get_logger().info(f"Image dtype: {left_rgb.dtype}")
 
         # Resize images
         left_resized = cv2.resize(left_rgb, (target_size[1], target_size[0]), interpolation=cv2.INTER_LINEAR) #TODO: check interpolation
@@ -212,8 +212,8 @@ class NeuStereoNode(Node):
         right_tensor = sample['right']
         right_tensor = right_tensor.unsqueeze(0)
 
-        self.get_logger().info(f"Left tensor shape: {left_tensor.shape}")
-        self.get_logger().info(f"Right tensor shape: {right_tensor.shape}")
+        # self.get_logger().info(f"Left tensor shape: {left_tensor.shape}")
+        # self.get_logger().info(f"Right tensor shape: {right_tensor.shape}")
 
         if self.display_stereo:
             combined_img = np.hstack((left, right))
@@ -264,7 +264,7 @@ class NeuStereoNode(Node):
         disparity = flow_list[-1]
         # unpad the disparity
         disparity = padder.unpad(disparity)[0].squeeze(0).cpu().numpy()
-        self.get_logger().info(f"Disparity range: {disparity.min()} to {disparity.max()}")
+        # self.get_logger().info(f"Disparity range: {disparity.min()} to {disparity.max()}")
         
         # Convert disparity to depth using camera intrinsics
         # depth = self.depth_from_disparity(disparity, left_info, right_info)
