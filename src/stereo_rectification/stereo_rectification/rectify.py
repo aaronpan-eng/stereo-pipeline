@@ -367,7 +367,7 @@ class RectifyStereoImgs(Node):
 
         # Log callback execution time
         callback_elapsed_ms = (time.perf_counter() - callback_start) * 1000
-        self.get_logger().info(f"Rectify callback time: {callback_elapsed_ms:.2f} ms")
+        # self.get_logger().info(f"Rectify callback time: {callback_elapsed_ms:.2f} ms")
 
 
 def main(args=None):
