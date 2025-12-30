@@ -1,4 +1,4 @@
-cuvslam_stereo_node:
+rectify_stereo_imgs:
   ros__parameters:
     cam0:
       cam_overlaps: [1]
@@ -7,7 +7,8 @@ cuvslam_stereo_node:
       distortion_model: "radtan"
       intrinsics: [1466.4877009420288, 1467.6763543219436, 614.4050415089318, 502.11169505408753]
       resolution: [1224, 1024]
-      rostopic: "/cam_sync/cam0/image_raw/debayered"
+      rostopic: "/cam_sync/cam0/image_raw/compressed"
+      topic_type: "CompressedImage"
     cam1:
       T_cn_cnm1: [0.9999873948321608, -0.004188430396260921, 0.0027689759119314677, -0.22202545829870135,
                   0.004182949531657344, 0.9999892868107945, 0.0019822201823875628, 9.380332217924853e-05,
@@ -19,4 +20,5 @@ cuvslam_stereo_node:
       distortion_model: "radtan"
       intrinsics: [1468.8136473668849, 1470.8215926716466, 621.0471037157588, 505.8800333724406]
       resolution: [1224, 1024]
-      rostopic: "/cam_sync/cam1/image_raw/debayered"
+      rostopic: "/cam_sync/cam1/image_raw/compressed"
+      topic_type: "CompressedImage"

@@ -23,38 +23,48 @@ class RectifyStereoImgs(Node):
         self.declare_parameter('cam0.resolution', [0])      # [width, height]
         self.declare_parameter('cam0.distortion_coeffs', [0.0])
         self.declare_parameter('cam0.distortion_model', '')
+        self.declare_parameter('cam0.rostopic', '')
+        self.declare_parameter('cam0.topic_type', '')
+
         self.declare_parameter('cam1.intrinsics', [0.0])
         self.declare_parameter('cam1.resolution', [0])
         self.declare_parameter('cam1.distortion_coeffs', [0.0])
         self.declare_parameter('cam1.distortion_model', '')
         self.declare_parameter('cam1.T_cn_cnm1', [0.0])      # 4x4 extrinsic matrix
-        
+        self.declare_parameter('cam1.rostopic', '')
+        self.declare_parameter('cam1.topic_type', '')
+
         # extract values from params
-        cam0_intrinsics = self.get_parameter('cam0.intrinsics').value
-        cam0_resolution = self.get_parameter('cam0.resolution').value
-        cam0_distortion = self.get_parameter('cam0.distortion_coeffs').value
-        cam0_dist_model = self.get_parameter('cam0.distortion_model').value
-        cam1_intrinsics = self.get_parameter('cam1.intrinsics').value
-        cam1_resolution = self.get_parameter('cam1.resolution').value
-        cam1_distortion = self.get_parameter('cam1.distortion_coeffs').value
-        cam1_dist_model = self.get_parameter('cam1.distortion_model').value
-        T_cam1_cam0 = self.get_parameter('cam1.T_cn_cnm1').value  # flattened 4x4 matrix
+        self.cam0_intrinsics = self.get_parameter('cam0.intrinsics').value
+        self.cam0_resolution = self.get_parameter('cam0.resolution').value
+        self.cam0_distortion = self.get_parameter('cam0.distortion_coeffs').value
+        self.cam0_dist_model = self.get_parameter('cam0.distortion_model').value
+        self.cam0_rostopic = self.get_parameter('cam0.rostopic').value
+        self.cam0_topic_type = self.get_parameter('cam0.topic_type').value
+
+        self.cam1_intrinsics = self.get_parameter('cam1.intrinsics').value
+        self.cam1_resolution = self.get_parameter('cam1.resolution').value
+        self.cam1_distortion = self.get_parameter('cam1.distortion_coeffs').value
+        self.cam1_dist_model = self.get_parameter('cam1.distortion_model').value
+        self.cam1_rostopic = self.get_parameter('cam1.rostopic').value
+        self.cam1_topic_type = self.get_parameter('cam1.topic_type').value
+        self.T_cam1_cam0 = self.get_parameter('cam1.T_cn_cnm1').value  # flattened 4x4 matrix
 
 
         # camera0 and 1 calibration instrinsics
-        self.K0 = np.array([[cam0_intrinsics[0], 0, cam0_intrinsics[2]],
-                             [0, cam0_intrinsics[1], cam0_intrinsics[3]],
+        self.K0 = np.array([[self.cam0_intrinsics[0], 0, self.cam0_intrinsics[2]],
+                             [0, self.cam0_intrinsics[1], self.cam0_intrinsics[3]],
                              [0, 0, 1]], dtype=np.float64)
-        self.D0 = np.array(cam0_distortion, dtype=np.float64)
+        self.D0 = np.array(self.cam0_distortion, dtype=np.float64)
   
-        self.K1 = np.array([[cam1_intrinsics[0], 0, cam1_intrinsics[2]],
-                             [0, cam1_intrinsics[1], cam1_intrinsics[3]],
+        self.K1 = np.array([[self.cam1_intrinsics[0], 0, self.cam1_intrinsics[2]],
+                             [0, self.cam1_intrinsics[1], self.cam1_intrinsics[3]],
                              [0, 0, 1]], dtype=np.float64)
-        self.D1 = np.array(cam1_distortion, dtype=np.float64)
-        self.T_cn_cnm1 = np.array(T_cam1_cam0, dtype=np.float64).reshape(4, 4) 
+        self.D1 = np.array(self.cam1_distortion, dtype=np.float64)
+        self.T_cn_cnm1 = np.array(self.T_cam1_cam0, dtype=np.float64).reshape(4, 4) 
 
         # Use resolution from parameters (width, height)
-        self.image_size = tuple(cam0_resolution)
+        self.image_size = tuple(self.cam0_resolution)
         self._compute_maps()
         # self._compute_fundamental_matrix()
         
@@ -104,9 +114,15 @@ class RectifyStereoImgs(Node):
         #     self.rectify_from_files(left_img, right_img, left_timestamp_ns, right_timestamp_ns)
 
         
+        # Dictionary to map the strings from the config to the actual message type
+        topic_map = {
+            'CompressedImage': CompressedImage,
+            'Image': Image,
+        }
+
         # grab left and right images and calibration data
-        self.left_img = Subscriber(self, Image, '/cam_sync/cam0/image_raw')
-        self.right_img = Subscriber(self, Image, '/cam_sync/cam1/image_raw')
+        self.left_img = Subscriber(self, topic_map[self.cam0_topic_type], self.cam0_rostopic)
+        self.right_img = Subscriber(self, topic_map[self.cam1_topic_type], self.cam1_rostopic)
 
         # sync messages
         self.sync = ApproximateTimeSynchronizer([self.left_img, self.right_img],queue_size=20,slop=0.01)
@@ -282,8 +298,15 @@ class RectifyStereoImgs(Node):
         callback_start = time.perf_counter()
         
         # grab left and right images
-        left_img = self.bridge.imgmsg_to_cv2(left)
-        right_img = self.bridge.imgmsg_to_cv2(right)
+        if self.cam0_topic_type == 'CompressedImage':
+            left_img = self.bridge.compressed_imgmsg_to_cv2(left)
+            right_img = self.bridge.compressed_imgmsg_to_cv2(right)
+        elif self.cam1_topic_type == 'Image':
+            left_img = self.bridge.imgmsg_to_cv2(left)
+            right_img = self.bridge.imgmsg_to_cv2(right)
+        else:
+            self.get_logger().error(f"Unsupported topic type: {self.cam0_topic_type} or {self.cam1_topic_type}")
+            return
         
         # rectify left and right images
         rect_l = cv2.remap(left_img, self.map1_x, self.map1_y, cv2.INTER_LINEAR)

@@ -1,5 +1,7 @@
 neu_stereo_node:
   ros__parameters:
     model_filename: "models/NeuStereo_FSD_250924_checkpoints_epoch_30.pth"
-    display: true
-    config_file: "config.yaml"
+    display_disparity: true
+    display_stereo_resized: true
+    display_stereo: false
+    model_config_file: "config.yaml"

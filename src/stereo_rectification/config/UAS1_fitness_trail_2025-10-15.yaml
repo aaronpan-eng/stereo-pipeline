@@ -7,7 +7,8 @@ rectify_stereo_imgs:
       distortion_model: "radtan"
       intrinsics: [1.78431371e+03, 1.79361399e+03, 7.31703773e+02, 5.68294255e+02]
       resolution: [1440, 1080]
-      rostopic: "/cam_sync/cam0/image_raw/"
+      rostopic: "/cam_sync/cam0/image_raw"
+      topic_type: "Image"
     cam1:
       T_cn_cnm1: [9.99971336e-01, -4.64402717e-04, 7.55726320e-03, -0.19979993,
                   5.68836788e-04, 9.99904299e-01, -1.38227566e-02, 0.00031504,
@@ -20,4 +21,4 @@ rectify_stereo_imgs:
       intrinsics: [1.78329458e+03, 1.79545479e+03, 7.49894060e+02, 5.61595147e+02]
       resolution: [1440, 1080]
       rostopic: "/cam_sync/cam1/image_raw"
-
+      topic_type: "Image"

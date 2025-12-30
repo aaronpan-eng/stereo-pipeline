@@ -1,0 +1,7 @@
+cuvslam_stereo_node:
+  ros__parameters:
+    rerun_visualization: true
+    visualization_2d: false
+    left_cam_topic_rerun: "/cam_sync/cam0"
+    save_trajectory_tum: true
+    use_imu: false

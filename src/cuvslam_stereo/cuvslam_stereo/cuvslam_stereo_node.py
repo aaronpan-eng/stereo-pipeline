@@ -14,6 +14,7 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image, CameraInfo
 from rclpy.time import Time
 from message_filters import ApproximateTimeSynchronizer, Subscriber
+from geometry_msgs.msg import Imu
 from cv_bridge import CvBridge
 from cuvslam_stereo.utils import combine_poses, transform_landmarks
 import numpy as np
@@ -23,14 +24,24 @@ class CuvslamStereo(Node):
     def __init__(self):
         super().__init__('cuvslam_stereo_node')
 
-        # TODO: create a yaml file with visualization and use_imu or visual only params
+        # Declare parameters from config yaml file
+        self.declare_parameter('rerun_visualization', False)
+        self.declare_parameter('left_cam_topic_rerun', '')
+        self.declare_parameter('save_trajectory_tum', False)
+        self.declare_parameter('visualization_2d', False)
+        self.declare_parameter('use_imu', False)
+        # Grab parameters from file
+        self.rerun_visualization = self.get_parameter('rerun_visualization').value
+        self.left_cam_topic_rerun = self.get_parameter('left_cam_topic_rerun').value
+        self.save_trajectory_tum = self.get_parameter('save_trajectory_tum').value
+        self.visualization_2d = self.get_parameter('visualization_2d').value
+        self.use_imu = self.get_parameter('use_imu').value
+        # TODO: add VIO to this node
 
         # Setup rerun visualization
         # like in kitti demo, the left camera is chosen for visualization
-        left_cam_topic = "/cam_sync/cam0"
-        self.rerun_visualization = True
         if self.rerun_visualization:
-            self._initialize_rerun_visualization(left_cam_topic)
+            self._initialize_rerun_visualization(self.left_cam_topic_rerun)
 
         # To save trajectory data to csv upon node shutdown
         self.trajectory = []
@@ -49,7 +60,9 @@ class CuvslamStereo(Node):
         self.left_sub = Subscriber(self, Image, '/cam_sync/cam0/image_rect')
         self.right_sub = Subscriber(self, Image, '/cam_sync/cam1/image_rect')
         self.left_info_sub = Subscriber(self, CameraInfo, '/cam_sync/cam0/rect_info')
-        self.right_info_sub = Subscriber(self, CameraInfo, '/cam_sync/cam1/rect_info')
+        self.right_info_sub = Subscriber(self, CameraInfo, '/cam_sync/cam1/rect_info')\
+        
+        self.imu_sub = Subscriber(self, Imu, '/imu/data', 10)
 
         # initialize publishers
         self.pose_pub = self.create_publisher(Odometry, '/cuvslam/odometry', 10)
@@ -64,8 +77,7 @@ class CuvslamStereo(Node):
 
         self.bridge = CvBridge()
 
-        self.visualization = False
-        if self.visualization:
+        if self.visualization_2d:
             plt.ion()
             self.traj_fig, self.traj_ax = plt.subplots()
             self.traj_ax.set_title('Cuvslam Trajectory')
@@ -83,7 +95,7 @@ class CuvslamStereo(Node):
 
     def _initialize_rerun_visualization(self, cam_name):
         # Setup rerun visualizer
-        rr.init('neuroam', strict=True, spawn=True)  # launch re-run instance
+        rr.init('ros2_cuvslam_stereo', strict=True, spawn=True)  # launch re-run instance
 
         # Setup rerun views
         rr.send_blueprint(rrb.Blueprint(
@@ -290,7 +302,7 @@ class CuvslamStereo(Node):
             ))
 
         # Visualize stereo pair video output and trajectory 2D X-Z live plot
-        if self.visualization is True:
+        if self.visualization_2d:
             stereo_pair = np.hstack((left_img, right_img))
             cv2.imshow('Stereo Pair - Cuvslam Node', stereo_pair)
             cv2.waitKey(1)
@@ -333,10 +345,10 @@ def save_trajectory_tum(filepath, poses):
 
 def main(args=None):
     rclpy.init(args=args)
-    odometry_publisher = CuvslamStereo()
+    cuvslam_stereo = CuvslamStereo()
 
     try:
-        rclpy.spin(odometry_publisher)
+        rclpy.spin(cuvslam_stereo)
     except KeyboardInterrupt:
         pass
     finally:
@@ -344,14 +356,16 @@ def main(args=None):
         results_dir = Path(__file__).resolve().parent.parent.parent.parent / 'output' / 'trajectories'
         results_dir.mkdir(parents=True, exist_ok=True)
 
-        odom_filename = results_dir / create_tum_filename('odom_trajectory')
-        save_trajectory_tum(odom_filename, odometry_publisher.odom_pose_estimates)
+        if cuvslam_stereo.save_trajectory_tum:
+            odom_filename = results_dir / create_tum_filename('odom_trajectory')
+            save_trajectory_tum(odom_filename, cuvslam_stereo.odom_pose_estimates)
 
-        slam_filename = results_dir / create_tum_filename('slam_trajectory')
-        save_trajectory_tum(slam_filename, odometry_publisher.slam_poses)
+            slam_filename = results_dir / create_tum_filename('slam_trajectory')
+            save_trajectory_tum(slam_filename, cuvslam_stereo.slam_poses)
+            cuvslam_stereo.get_logger().info(f"Saved trajectory to {results_dir} directory")
 
         # shutdown node
-        odometry_publisher.destroy_node()
+        cuvslam_stereo.destroy_node()
         rclpy.shutdown()
 
 
