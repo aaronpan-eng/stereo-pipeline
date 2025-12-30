@@ -9,6 +9,8 @@ from sensor_msgs.msg import Image, CameraInfo
 from rclpy.node import Node
 from cv_bridge import CvBridge
 from ament_index_python.packages import get_package_share_directory
+import rerun as rr
+import rerun.blueprint as rrb
 
 # NeuStereo is an external git submodule - slight modification
 # to pull it in from the submodules directory
@@ -44,7 +46,10 @@ class NeuStereoNode(Node):
         self.display_stereo = self.get_parameter('display_stereo').value
         model_config_file = self.get_parameter('model_config_file').value
         self.config_path = neustereo_path / 'configs' / model_config_file
-        
+
+        # Initialize rerun
+        self._initialize_rerun()
+
         # TODO: see if this block can be simplified below
         # Resolve model filename path
         # If it's a relative path, resolve it relative to the package share directory
@@ -85,6 +90,31 @@ class NeuStereoNode(Node):
 
         # Initialize cvbridge
         self.bridge = CvBridge()
+    
+    def _initialize_rerun(self):
+        # Setup rerun visualizer with recording_id for shared session
+        rr.init('neustereo_ros2', strict=True, spawn=True)
+        
+        # Setup rerun views
+        rr.send_blueprint(rrb.Blueprint(
+            rrb.TimePanel(state="collapsed"),
+            rrb.Grid(
+                rrb.Spatial2DView(
+                    name = 'stereo images',
+                    origin = '/neustereo_ros2/stereo/original'
+                ),
+                rrb.Spatial2DView(
+                    name = 'stereo resized images',
+                    origin = '/neustereo_ros2/stereo/resized'
+                ),
+                rrb.Spatial2DView(
+                    name = 'disparity map',
+                    origin = '/neustereo_ros2/disparity'
+                )
+            )
+        ))
+        
+        self.get_logger().info(f"neustereo_ros2 node rerun initialized.")
 
     def _load_model(self):
         """
@@ -145,7 +175,7 @@ class NeuStereoNode(Node):
         """
         # Orig size to upscale later
         self.original_size = (left.shape[0], left.shape[1]) # (H,W)
-        self.get_logger().info(f"Original size: {self.original_size}")
+        # self.get_logger().info(f"Original size: {self.original_size}")
 
         # Specify target size (H,W)
         target_size = (384, 768) #TODO: change this to pull from the NeuStereo yaml file or have it specified in the ros2 config
@@ -160,7 +190,7 @@ class NeuStereoNode(Node):
         # Convert from BGR --> RGB for pytorch
         left_rgb = cv2.cvtColor(left, cv2.COLOR_BGR2RGB)
         right_rgb = cv2.cvtColor(right, cv2.COLOR_BGR2RGB)
-        self.get_logger().info(f"Image dtype: {left_rgb.dtype}")
+        # self.get_logger().info(f"Image dtype: {left_rgb.dtype}")
 
         # Resize images
         left_resized = cv2.resize(left_rgb, (target_size[1], target_size[0]), interpolation=cv2.INTER_LINEAR) #TODO: check interpolation
@@ -182,17 +212,16 @@ class NeuStereoNode(Node):
         right_tensor = sample['right']
         right_tensor = right_tensor.unsqueeze(0)
 
-        self.get_logger().info(f"Left tensor shape: {left_tensor.shape}")
-        self.get_logger().info(f"Right tensor shape: {right_tensor.shape}")
+        # self.get_logger().info(f"Left tensor shape: {left_tensor.shape}")
+        # self.get_logger().info(f"Right tensor shape: {right_tensor.shape}")
 
         if self.display_stereo:
             combined_img = np.hstack((left, right))
-            cv2.imshow("Combined Image", combined_img)
-            cv2.waitKey(1)
+            # TODO: check if need to compress image or not
+            rr.log('/neustereo_ros2/stereo/original', rr.Image(combined_img).compress(jpeg_quality=80))
         if self.display_stereo_resized:
             combined_resized = np.hstack((left_resized, right_resized))
-            cv2.imshow("Combined Resized Image", combined_resized)
-            cv2.waitKey(1)
+            rr.log('/neustereo_ros2/stereo/resized', rr.Image(combined_resized).compress(jpeg_quality=80))
 
         return left_tensor, right_tensor
 
@@ -235,16 +264,14 @@ class NeuStereoNode(Node):
         disparity = flow_list[-1]
         # unpad the disparity
         disparity = padder.unpad(disparity)[0].squeeze(0).cpu().numpy()
-        self.get_logger().info(f"Disparity range: {disparity.min()} to {disparity.max()}")
+        # self.get_logger().info(f"Disparity range: {disparity.min()} to {disparity.max()}")
         
         # Convert disparity to depth using camera intrinsics
         # depth = self.depth_from_disparity(disparity, left_info, right_info)
         
         # Publish disparity image (convert to 16-bit for precision)
         # TODO: double check this stuff below
-        disparity_msg = self.bridge.cv2_to_imgmsg(
-            (disparity * 256).astype(np.uint16), encoding='mono16'
-        )
+        disparity_msg = self.bridge.cv2_to_imgmsg(disparity.astype(np.uint8), encoding='mono8')
         disparity_msg.header = left.header
         self.disparity_pub.publish(disparity_msg)
         
@@ -255,11 +282,6 @@ class NeuStereoNode(Node):
 
         
         if self.display_disparity:
-            # Normalize disparity for visualization
-            # KITTI max disparity is ~256, adjust based on your data
-            # max_disp = 256.0
-            # disp_vis = np.clip(disparity, 0, max_disp)
-            # disp_vis = (disp_vis / max_disp * 255).astype(np.uint8)
             # TODO: check if any normlaization or clipping is needed here based on NeuStereo repo
             disp_vis = disparity.astype(np.uint8)
             disp_colormap = cv2.applyColorMap(disp_vis, cv2.COLORMAP_VIRIDIS)
@@ -269,9 +291,7 @@ class NeuStereoNode(Node):
         #     depth_vis = (depth_vis / 50.0 * 255).astype(np.uint8)
         #     depth_colormap = cv2.applyColorMap(depth_vis, cv2.COLORMAP_TURBO)
             
-            cv2.imshow("Disparity", disp_colormap)
-        #     cv2.imshow("Depth", depth_colormap)
-            cv2.waitKey(1)
+            rr.log('/neustereo_ros2/disparity', rr.Image(disp_colormap).compress(jpeg_quality=80))
 
     def depth_from_disparity(self, disparity, left_info, right_info):
         """
