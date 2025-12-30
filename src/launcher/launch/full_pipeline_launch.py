@@ -1,5 +1,3 @@
-import os
-
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
@@ -9,6 +7,17 @@ from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
+    # Rerun visualization
+    rerun_visualizer = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('rerun_visualizer'),
+                'launch',
+                'rerun_visualizer_launch.py'
+            ])
+        )
+    )
+
     # Launch arg for rectify config (just the filename, child builds the full path)
     rectify_config_arg = DeclareLaunchArgument(
         'rectify_config_yaml',
@@ -65,6 +74,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        # rerun_visualizer,
         rectify_config_arg,
         rectify,
         cuvslam_stereo,
