@@ -2,6 +2,8 @@ import rclpy
 import time
 from rclpy.node import Node
 from std_msgs.msg import String
+import rerun as rr
+import rerun.blueprint as rrb
 import numpy as np
 from sensor_msgs.msg import CompressedImage, Image, CameraInfo
 import cv2
@@ -78,6 +80,8 @@ class RectifyStereoImgs(Node):
         self.pub_right_info = self.create_publisher(CameraInfo, '/cam_sync/cam1/rect_info', 10)
 
         self.visualization = False
+        if self.visualization:
+            self._initialize_rerun()
 
         # TODO: change this into a separate python script or break off into another function
         # image_directory = "/home/aaron/test_bags/stereo_images"
@@ -132,6 +136,25 @@ class RectifyStereoImgs(Node):
     def recalibrate(self, left, right):
         NotImplementedError()
 
+    def _initialize_rerun(self):
+        rr.init('stereo_rectification', strict=True, spawn=True)
+        rr.send_blueprint(rrb.Blueprint(
+            rrb.TimePanel(state="collapsed"),
+            rrb.Vertical(
+                row_shares=[0.5, 0.5],
+                contents=[
+                    rrb.Spatial2DView(
+                        name='unreftified stereo pair', 
+                        origin='/stereo_rectification/unrectified'
+                    ),
+                    rrb.Spatial2DView(
+                        name='rectified stereo pair', 
+                        origin='/stereo_rectification/rectified'
+                    ),
+                ]
+            )
+        ))
+    
     def _parse_pckl(self, file):
         NotImplementedError() #TODO: add support format for intrinsic format in .pckl
 
@@ -355,15 +378,13 @@ class RectifyStereoImgs(Node):
         self.pub_right_info.publish(rect_info_right)
 
         if self.visualization:
-            # display unrectified pair
+            # display unrectified pair to rerun
             unrect_stereo_pair = np.hstack((left_img, right_img))
-            cv2.imshow('Unrectified Stereo Pair', unrect_stereo_pair)
-            cv2.waitKey(1)
+            rr.log('/stereo_rectification/unrectified', rr.Image(unrect_stereo_pair).compress(jpeg_quality=80))
             
-            # display rectified pair
+            # display rectified pair to rerun
             stereo_pair = np.hstack((rect_l, rect_r))
-            cv2.imshow('Rectified Stereo Pair', stereo_pair)
-            cv2.waitKey(1)
+            rr.log('/stereo_rectification/rectified', rr.Image(stereo_pair).compress(jpeg_quality=80))
 
         # Log callback execution time
         callback_elapsed_ms = (time.perf_counter() - callback_start) * 1000
