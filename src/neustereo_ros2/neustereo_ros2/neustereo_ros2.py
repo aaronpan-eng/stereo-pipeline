@@ -15,7 +15,8 @@ import rerun.blueprint as rrb
 # NeuStereo is an external git submodule - slight modification
 # to pull it in from the submodules directory
 workspace_root = Path(__file__).resolve().parents[3]
-neustereo_path = workspace_root / 'submodules' / 'NeuStereo'
+# neustereo_path = workspace_root / 'submodules' / 'NeuStereo'
+neustereo_path = Path('/home/frl/stereo-pipeline/submodules/NeuStereo')
 sys.path.insert(0, str(neustereo_path))
 
 from NeuStereo.neustereo import NeuStereo
@@ -33,6 +34,7 @@ class NeuStereoNode(Node):
         super().__init__('neu_stereo_node')
 
         # Declare parameters from config yaml file
+        self.declare_parameter('rerun_visualization', False)
         self.declare_parameter('display_disparity', False)
         self.declare_parameter('display_stereo_resized', False)
         self.declare_parameter('display_stereo', False)
@@ -41,14 +43,23 @@ class NeuStereoNode(Node):
 
         # Grab parameters from file
         model_filename_param = self.get_parameter('model_filename').value
+        self.rerun_visualization = self.get_parameter('rerun_visualization').value
         self.display_disparity = self.get_parameter('display_disparity').value
         self.display_stereo_resized = self.get_parameter('display_stereo_resized').value
         self.display_stereo = self.get_parameter('display_stereo').value
         model_config_file = self.get_parameter('model_config_file').value
         self.config_path = neustereo_path / 'configs' / model_config_file
+        # model_config_file_param = self.get_parameter('model_config_file').value
+
+        # if model_config_file_param and Path(model_config_file_param).is_absolute():
+        #     self.config_path = Path(model_config_file_param)
+        # else:
+        #     self.config_path = neustereo_path / 'configs' / model_config_file_param
+        # self.get_logger().info(f"Final config path: {self.config_path}")
 
         # Initialize rerun
-        self._initialize_rerun()
+        if self.rerun_visualization:
+            self._initialize_rerun()
 
         # TODO: see if this block can be simplified below
         # Resolve model filename path

@@ -39,7 +39,7 @@ def generate_launch_description():
             ])
         ),
         launch_arguments={
-            'rerun_visualization': 'true',
+            'rerun_visualization': 'false',
             'save_trajectory_tum': 'false',
         }.items()
     )

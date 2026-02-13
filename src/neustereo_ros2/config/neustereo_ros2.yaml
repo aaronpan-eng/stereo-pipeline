@@ -5,3 +5,15 @@ neu_stereo_node:
     display_stereo_resized: true
     display_stereo: false
     model_config_file: "config.yaml"
+# neu_stereo_node:
+#   ros__parameters:
+#     # Keep the absolute path for the weights (the code handles this correctly)
+#     model_filename: "/home/frl/stereo-pipeline/src/neustereo_ros2/models/NeuStereo_FSD_250924_checkpoints_epoch_30.pth"
+    
+#     display_disparity: true
+#     display_stereo_resized: true
+#     display_stereo: false
+#     rerun_visualization: false
+    
+#     # CHANGE THIS: Only use the filename, no slashes or paths
+#     model_config_file: "config.yaml"
