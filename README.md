@@ -9,27 +9,29 @@
 
 *In **Bold** are high priority tasks*
 
+j- [ ] **(WIP) - Check out suggestion for cuda accelerated rectification package (https://docs.nvidia.com/vpi/algo_ldc.html)**
+- [ ] **(WIP) - Get AlliedVision cameras working with the pipeline**
+- [ ] **Debug why CUDA is running out of memory**
+- [ ] **(WIP) - Evaluate runtimes of image publishing, rectification node, cuvslam node, neustereo node**
+- [ ] Add IMU for VIO and compare traj once dslam comparison sorted
 - [ ] Evaluate SLAM algos on drone data
   - [x] cuvslam traj
   - [x] droidslam traj
   - [x] orbslam3 traj (after parameter tuning - still doesnt track well)
   - [x] compare with all
   - [ ] troubleshoot trajectory differences
-- [ ] Integrate Vimba stuff for AlliedVision cameras
-- [ ] **Check out suggestion for cuda accelerated rectification package (https://docs.nvidia.com/vpi/algo_ldc.html)**
 - [x] Create NeuStereo ROS2 node
   - [x] Get NeuStereo ROS2 disparity output working
-- [ ] ** Convert nodes into cpp
+- [ ] After optimization - Convert nodes into cpp
 - [ ] Github action to check cuvslam-ros2 Dockerfile
   - [ ] Corrrect Github action to check cuvslam-ros2 Dockerfile
   - [x] Initial Github action to check Dockerfile
-- [ ] **Add IMU for VIO and compare traj once dslam comparison sorted**
 
 
 Contains ros2 nodes for:
 - **Stereo image rectification** from calibrated camera pairs
 - **Visual odometry** using NVIDIA cuVSLAM (GPU-accelerated)
-- **WIP - depth map output** with NeuStereo
+- **Depth map output** with NeuStereo
 
 Evaluation of NeuRoam data with fast_LIMO
 - **LiDAR-inertial odometry** using fast_LIMO in `sumbodules/fast_LIMO`
@@ -85,17 +87,31 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-### 2. Launch stereo rectification
+### 2. Launch full pipeline
 ```bash
-ros2 launch stereo_rectification rectify_launch.py config_yaml:=<your_config>.yaml
+ros2 launch launcher full_pipeline_launch.py
 ```
 
-### 3. Launch cuVSLAM visual odometry
-```bash
-ros2 launch cuvslam_stereo cuvslam_stereo_launch.py
-```
 
-### 4. Play a ROS2 bag
+> #### Launch components separately
+>
+> ##### Launch stereo rectification only
+> ```bash
+> ros2 launch stereo_rectification rectify_launch.py config_yaml:=<your_config>.yaml
+> ```
+>
+> ##### Launch cuVSLAM visual odometry only
+> ```bash
+> ros2 launch cuvslam_stereo cuvslam_stereo_launch.py rerun_visualization:=<true/false> save_trajectory_tum:=<true/false>
+> ```
+> 
+> #### Launch NeuStereo depth estimation only
+> ```bash
+> ros2 launch neustereo_ros2 neustereo_launch.py model_config_yaml:=<your_model_config>.yaml
+> ```
+
+
+### 3. Play a ROS2 bag
 ```bash
 ros2 bag play <path_to_bag>
 ```
