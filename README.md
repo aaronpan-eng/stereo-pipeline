@@ -9,7 +9,7 @@
 
 *In **Bold** are high priority tasks*
 
-j- [ ] **(WIP) - Check out suggestion for cuda accelerated rectification package (https://docs.nvidia.com/vpi/algo_ldc.html)**
+- [ ] **(WIP) - Check out suggestion for cuda accelerated rectification package (https://docs.nvidia.com/vpi/algo_ldc.html)**
 - [ ] **(WIP) - Get AlliedVision cameras working with the pipeline**
 - [ ] **Debug why CUDA is running out of memory**
 - [ ] **(WIP) - Evaluate runtimes of image publishing, rectification node, cuvslam node, neustereo node**
