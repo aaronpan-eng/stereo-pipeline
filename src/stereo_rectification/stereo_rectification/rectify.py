@@ -297,6 +297,15 @@ class RectifyStereoImgs(Node):
         self.map1_x, self.map1_y = cv2.initUndistortRectifyMap(self.K0, self.D0, self.R1, self.P1, self.image_size, cv2.CV_32FC1)
         self.map2_x, self.map2_y = cv2.initUndistortRectifyMap(self.K1, self.D1, self.R2, self.P2, self.image_size, cv2.CV_32FC1)
 
+        self.map1_x_gpu = cv2.cuda_GpuMat()
+        self.map1_x_gpu.upload(self.map1_x)
+        self.map1_y_gpu = cv2.cuda_GpuMat()
+        self.map1_y_gpu.upload(self.map1_y)
+        self.map2_x_gpu = cv2.cuda_GpuMat()
+        self.map2_x_gpu.upload(self.map2_x)
+        self.map2_y_gpu = cv2.cuda_GpuMat()
+        self.map2_y_gpu.upload(self.map2_y)
+
     def rectify_from_files(self, left, right, left_timestamp_ns, right_timestamp_ns):
         # rectify left and right images
         rect_l = cv2.remap(left, self.map1_x, self.map1_y, cv2.INTER_LINEAR)
@@ -317,6 +326,23 @@ class RectifyStereoImgs(Node):
         cv2.imwrite(left_rect_path, rect_l)
         cv2.imwrite(right_rect_path, rect_r)
 
+    def rectify_cv2_cuda(self, left, right):
+        # Upload images to GPU
+        left_gpumat = cv2.cuda_GpuMat()
+        left_gpumat.upload(left)
+        right_gpumat = cv2.cuda_GpuMat()
+        right_gpumat.upload(right)
+
+        # Rectify using CUDA remap with GPU maps
+        rect_l_gpumat = cv2.cuda.remap(left_gpumat, self.map1_x_gpu, self.map1_y_gpu, cv2.INTER_LINEAR)
+        rect_r_gpumat = cv2.cuda.remap(right_gpumat, self.map2_x_gpu, self.map2_y_gpu, cv2.INTER_LINEAR)
+
+        # Download results from GPU
+        rect_l = rect_l_gpumat.download()
+        rect_r = rect_r_gpumat.download()
+
+        return rect_l, rect_r
+
     def rectify(self, left, right):
         callback_start = time.perf_counter()
         
@@ -330,10 +356,9 @@ class RectifyStereoImgs(Node):
         else:
             self.get_logger().error(f"Unsupported topic type: {self.cam0_topic_type} or {self.cam1_topic_type}")
             return
-        
-        # rectify left and right images
-        rect_l = cv2.remap(left_img, self.map1_x, self.map1_y, cv2.INTER_LINEAR)
-        rect_r = cv2.remap(right_img, self.map2_x, self.map2_y, cv2.INTER_LINEAR)
+
+        # rectify using cv2 with cuda support
+        rect_l, rect_r = self.rectify_cv2_cuda(left_img, right_img)
 
         # grab left time stamp to sync publishing
         time_sync_stamp_left = left.header.stamp
