@@ -15,8 +15,8 @@ import rerun.blueprint as rrb
 # NeuStereo is an external git submodule - slight modification
 # to pull it in from the submodules directory
 workspace_root = Path(__file__).resolve().parents[3]
-# neustereo_path = workspace_root / 'submodules' / 'NeuStereo'
-neustereo_path = Path('/home/frl/stereo-pipeline/submodules/NeuStereo')
+neustereo_path = workspace_root / 'submodules' / 'NeuStereo'
+# neustereo_path = Path('/home/frl/stereo-pipeline/submodules/NeuStereo')
 sys.path.insert(0, str(neustereo_path))
 
 from NeuStereo.neustereo import NeuStereo
