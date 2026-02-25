@@ -22,3 +22,7 @@
 	path = submodules/vimbax_ros2_driver
 	url = git@github.com:alliedvision/vimbax_ros2_driver.git
 	branch = humble
+[submodule "submodules/vision_opencv"]
+	path = submodules/vision_opencv
+	url = git@github.com:ros-perception/vision_opencv.git
+	branch = humble

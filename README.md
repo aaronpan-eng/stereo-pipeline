@@ -9,11 +9,15 @@
 
 *In **Bold** are high priority tasks*
 
-- [ ] **(WIP) - Check out suggestion for cuda accelerated rectification package (https://docs.nvidia.com/vpi/algo_ldc.html)**
 - [ ] **(WIP) - Get AlliedVision cameras working with the pipeline**
-- [ ] **Debug why CUDA is running out of memory**
+- [ ] **(WIP) - Debug why CUDA is running out of memory**
 - [ ] **(WIP) - Evaluate runtimes of image publishing, rectification node, cuvslam node, neustereo node**
+- [ ] Add Shell script or instructions for building OpenCV with CUDA support and cv_bridge
+- [ ] Add ros2 camera launch command to the full_pipeline_launch.py
+- [ ] After optimization - Convert necessary nodes into cpp
 - [ ] Add IMU for VIO and compare traj once dslam comparison sorted
+- [x] Add GPU suport for OpenCV (built OpenCV from source and used OpenCV CUDA module)
+  - [x] ~~(WIP) - Check out suggestion for cuda accelerated rectification package (https://docs.nvidia.com/vpi/algo_ldc.html)~~
 - [ ] Evaluate SLAM algos on drone data
   - [x] cuvslam traj
   - [x] droidslam traj
@@ -22,7 +26,6 @@
   - [ ] troubleshoot trajectory differences
 - [x] Create NeuStereo ROS2 node
   - [x] Get NeuStereo ROS2 disparity output working
-- [ ] After optimization - Convert nodes into cpp
 - [ ] Github action to check cuvslam-ros2 Dockerfile
   - [ ] Corrrect Github action to check cuvslam-ros2 Dockerfile
   - [x] Initial Github action to check Dockerfile
