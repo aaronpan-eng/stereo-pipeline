@@ -58,7 +58,6 @@ def generate_launch_description():
             'display_disparity': 'true',
             'display_stereo_resized': 'true',
             'display_stereo': 'false',
-            'model_config_file': 'config.yaml',
         }.items()
     )
 
