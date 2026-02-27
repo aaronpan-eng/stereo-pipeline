@@ -8,7 +8,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     # Config file argument
     model_config_file_arg = DeclareLaunchArgument(
-        'model_config_yaml',
+        'config_yaml',
         default_value='neustereo_ros2.yaml',
         description='YAML config file for NeuStereo model'
     )
@@ -17,7 +17,7 @@ def generate_launch_description():
     config_file_path = PathJoinSubstitution([
         FindPackageShare('neustereo_ros2'),
         'config',
-        LaunchConfiguration('model_config_yaml')
+        LaunchConfiguration('config_yaml')
     ])
 
     # Override parameters with launch arguments
@@ -52,7 +52,6 @@ def generate_launch_description():
                 'display_disparity': LaunchConfiguration('display_disparity'),
                 'display_stereo_resized': LaunchConfiguration('display_stereo_resized'),
                 'display_stereo': LaunchConfiguration('display_stereo'),
-                'model_config_file': LaunchConfiguration('model_config_file'),
             }
         ],
     )
