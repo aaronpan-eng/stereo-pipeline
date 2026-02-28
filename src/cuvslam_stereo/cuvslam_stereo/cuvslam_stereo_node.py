@@ -29,6 +29,7 @@ class CuvslamStereo(Node):
         self.declare_parameter('save_trajectory_tum', False)
         self.declare_parameter('visualization_2d', False)
         self.declare_parameter('use_imu', False)
+        
         # Grab parameters from file
         self.rerun_visualization = self.get_parameter('rerun_visualization').value
         self.left_cam_topic_rerun = self.get_parameter('left_cam_topic_rerun').value
