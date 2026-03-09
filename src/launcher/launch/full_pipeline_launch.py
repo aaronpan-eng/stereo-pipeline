@@ -10,7 +10,7 @@ def generate_launch_description():
     # Launch arg for rectify config (just the filename, child builds the full path)
     rectify_config_arg = DeclareLaunchArgument(
         'rectify_config_yaml',
-        default_value='payload1_20250828.yaml',
+        default_value='frl0_drone.yaml',
         description='REQUIRED: YAML filename with camera calibration parameters (e.g. payload1_20250828.yaml)'
     )
 
