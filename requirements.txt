@@ -1,6 +1,7 @@
 setuptools==79.0.1
 easydict==1.13
-numpy=1.26.4
+coloredlogs==15.0.1
+numpy==1.26.1
 pillow==11.1.0
 pyyaml==6.0.2
 rerun-sdk==0.22.1

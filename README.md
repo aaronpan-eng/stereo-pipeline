@@ -78,6 +78,50 @@ git lfs install
 git lfs pull
 ```
 
+## Setup: To run locally on Jetson
+
+### Install ros2 humble and colcon tools
+Instructions here for ros2 desktop install: https://docs.ros.org/en/humble/Installation.html
+```bash
+locale  # check for UTF-8
+
+sudo apt update && sudo apt install locales
+sudo locale-gen en_US en_US.UTF-8
+sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+export LANG=en_US.UTF-8
+
+locale  # verify settings
+
+sudo apt install software-properties-common
+sudo add-apt-repository universe
+
+sudo apt update && sudo apt install curl -y
+export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}')
+curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
+sudo dpkg -i /tmp/ros2-apt-source.deb
+
+sudo apt update
+
+sudo apt install ros-humble-desktop
+```
+
+Instructions here for installing colcon tools: https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html
+```bash
+sudo apt install python3-colcon-common-extensions
+```
+
+### Install v4l2_camera package
+Source: https://docs.ros.org/en/humble/p/v4l2_camera/
+```bash
+sudo apt-get install ros-humble-v4l2-camera
+```
+
+### Install pytorch on Jetpack 6.2
+```bash
+pip install torch==2.8.0 torchvision==0.23.0 \
+  --index-url=https://pypi.jetson-ai-lab.io/jp6/cu126
+```
+
 ### Install requirements.txt
 ```
 # inside /stereo-pipeline directory

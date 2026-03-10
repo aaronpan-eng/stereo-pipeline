@@ -49,13 +49,6 @@ class NeuStereoNode(Node):
         self.display_stereo = self.get_parameter('display_stereo').value
         model_config_file = self.get_parameter('model_config_file').value
         self.config_path = neustereo_path / 'configs' / model_config_file
-        # model_config_file_param = self.get_parameter('model_config_file').value
-
-        # if model_config_file_param and Path(model_config_file_param).is_absolute():
-        #     self.config_path = Path(model_config_file_param)
-        # else:
-        #     self.config_path = neustereo_path / 'configs' / model_config_file_param
-        # self.get_logger().info(f"Final config path: {self.config_path}")
 
         # Initialize rerun
         if self.rerun_visualization:
