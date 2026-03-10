@@ -62,7 +62,41 @@ stereo-pipeline/
 └── data/                       # Dataset storage
 ```
 
-## Docker Setup
+## Prerequisites (WIP)
+
+### Pull submodules
+```
+git submodule update --init --recursive
+```
+
+### Pull weights and large files using git lfs
+Make sure git lfs is installed, then pull
+```
+sudo apt-get install git-lfs
+# in the repo directory:
+git lfs install
+git lfs pull
+```
+
+### Install requirements.txt
+```
+# inside /stereo-pipeline directory
+pip install -r requirements.txt
+```
+
+### Install OpenCV with CUDA support and build and source cv_bridge
+```
+# inside /scripts
+./install_opencv4.10.0_Jetpack6.1.sh
+./install_cv_bridge.sh
+```
+
+### Reboot machine
+```
+sudo reboot
+```
+
+## Docker Setup *(skip if running on Jetson)*
 
 ### Build the Docker image for cuvslam
 ```bash
@@ -83,9 +117,8 @@ This starts a container with:
 
 ## ROS2 Quick Start
 
-### 1. Build the workspace (inside Docker)
+### 1. Build the workspace inside stereo-pipeline directory
 ```bash
-cd /workspace
 colcon build --symlink-install
 source install/setup.bash
 ```

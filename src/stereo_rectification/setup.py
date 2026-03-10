@@ -29,7 +29,6 @@ setup(
     entry_points={
         'console_scripts': [
             'rectify = stereo_rectification.rectify:main',
-            'camera_info_publisher = stereo_rectification.camera_info_publisher:main',
         ],
     },
 )
