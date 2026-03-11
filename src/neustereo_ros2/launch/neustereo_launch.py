@@ -37,6 +37,10 @@ def generate_launch_description():
         'display_stereo', 
         description='Override display stereo flag in config file',
     )
+    rerun_visualization_arg = DeclareLaunchArgument(
+        'rerun_visualization', 
+        description='Override rerun visualization flag in config file',
+    )
 
     # NeuStereo node
     neustereo_node = Node(
@@ -52,6 +56,7 @@ def generate_launch_description():
                 'display_disparity': LaunchConfiguration('display_disparity'),
                 'display_stereo_resized': LaunchConfiguration('display_stereo_resized'),
                 'display_stereo': LaunchConfiguration('display_stereo'),
+                'rerun_visualization': LaunchConfiguration('rerun_visualization'),
             }
         ],
     )
@@ -62,6 +67,7 @@ def generate_launch_description():
         display_disparity_arg,
         display_stereo_resized_arg,
         display_stereo_arg,
+        rerun_visualization_arg,
         neustereo_node
     ])
 

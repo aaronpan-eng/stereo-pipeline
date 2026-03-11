@@ -39,7 +39,7 @@ def generate_launch_description():
             ])
         ),
         launch_arguments={
-            'rerun_visualization': 'true',
+            'rerun_visualization': 'false',
             'save_trajectory_tum': 'false',
         }.items()
     )
@@ -58,6 +58,7 @@ def generate_launch_description():
             'display_disparity': 'true',
             'display_stereo_resized': 'true',
             'display_stereo': 'false',
+            'rerun_visualization': 'false',
         }.items()
     )
 

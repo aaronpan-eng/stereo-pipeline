@@ -9,6 +9,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from rclpy.node import Node
 from cv_bridge import CvBridge
 from ament_index_python.packages import get_package_share_directory
+from stereo_pipeline_common.cuda_timer import CudaTimer
 import rerun as rr
 import rerun.blueprint as rrb
 
@@ -49,6 +50,9 @@ class NeuStereoNode(Node):
         self.display_stereo = self.get_parameter('display_stereo').value
         model_config_file = self.get_parameter('model_config_file').value
         self.config_path = neustereo_path / 'configs' / model_config_file
+
+        # initialize cuda timer
+        self.cuda_timer = CudaTimer('neustereo_ros2')
 
         # Initialize rerun
         if self.rerun_visualization:
@@ -219,13 +223,14 @@ class NeuStereoNode(Node):
         # self.get_logger().info(f"Left tensor shape: {left_tensor.shape}")
         # self.get_logger().info(f"Right tensor shape: {right_tensor.shape}")
 
-        if self.display_stereo:
-            combined_img = np.hstack((left, right))
-            # TODO: check if need to compress image or not
-            rr.log('/neustereo_ros2/stereo/original', rr.Image(combined_img).compress(jpeg_quality=80))
-        if self.display_stereo_resized:
-            combined_resized = np.hstack((left_resized, right_resized))
-            rr.log('/neustereo_ros2/stereo/resized', rr.Image(combined_resized).compress(jpeg_quality=80))
+        if self.rerun_visualization:
+            if self.display_stereo:
+                combined_img = np.hstack((left, right))
+                # TODO: check if need to compress image or not
+                rr.log('/neustereo_ros2/stereo/original', rr.Image(combined_img).compress(jpeg_quality=80))
+            if self.display_stereo_resized:
+                combined_resized = np.hstack((left_resized, right_resized))
+                rr.log('/neustereo_ros2/stereo/resized', rr.Image(combined_resized).compress(jpeg_quality=80))
 
         return left_tensor, right_tensor
 
@@ -251,6 +256,8 @@ class NeuStereoNode(Node):
             self.model_initialized = True
             self.get_logger().info(f"Initialized model with dims: batch={batch_size}, H={height}, W={width}")
 
+        # initialize cuda timer
+        self.cuda_timer.start_timer()
         # Feed into NeuStereo with half precision (matching evaluation code)
         # Convert to half precision and use autocast for proper AMP inference
         # Reference: https://github.com/aniket-gupta1/NeuStereo/blob/experimental/evaluate_stereo.py#L294-L298
@@ -262,6 +269,7 @@ class NeuStereoNode(Node):
         # reference: https://github.com/aniket-gupta1/NeuStereo/blob/experimental/evaluate_stereo.py#L306-L313
         with torch.no_grad(), torch.amp.autocast('cuda', enabled=True):
             flow_list = self.model(left_half, right_half)
+        self.cuda_timer.end_timer()
 
         # Grab the most refined disparity from the list (last one)
         # Shape: [1, 1, H, W] -> [H, W]
@@ -285,17 +293,18 @@ class NeuStereoNode(Node):
         # self.depth_pub.publish(depth_msg)
 
         
-        if self.display_disparity:
-            # TODO: check if any normlaization or clipping is needed here based on NeuStereo repo
-            disp_vis = disparity.astype(np.uint8)
-            disp_colormap = cv2.applyColorMap(disp_vis, cv2.COLORMAP_VIRIDIS)
-            
-        #     # Normalize depth for visualization (clip to 50m max)
-        #     depth_vis = np.clip(depth, 0, 50)
-        #     depth_vis = (depth_vis / 50.0 * 255).astype(np.uint8)
-        #     depth_colormap = cv2.applyColorMap(depth_vis, cv2.COLORMAP_TURBO)
-            
-            rr.log('/neustereo_ros2/disparity', rr.Image(disp_colormap).compress(jpeg_quality=80))
+        if self.rerun_visualization:
+            if self.display_disparity:
+                # TODO: check if any normlaization or clipping is needed here based on NeuStereo repo
+                disp_vis = disparity.astype(np.uint8)
+                disp_colormap = cv2.applyColorMap(disp_vis, cv2.COLORMAP_VIRIDIS)
+                
+            #     # Normalize depth for visualization (clip to 50m max)
+            #     depth_vis = np.clip(depth, 0, 50)
+            #     depth_vis = (depth_vis / 50.0 * 255).astype(np.uint8)
+            #     depth_colormap = cv2.applyColorMap(depth_vis, cv2.COLORMAP_TURBO)
+                
+                rr.log('/neustereo_ros2/disparity', rr.Image(disp_colormap).compress(jpeg_quality=80))
 
     def depth_from_disparity(self, disparity, left_info, right_info):
         """
@@ -331,6 +340,7 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        self.get_logger().info(f"NeuStereo node average runtime: {node.cuda_timer.get_average_runtime()} ms")
         node.destroy_node()
         rclpy.shutdown()
 
