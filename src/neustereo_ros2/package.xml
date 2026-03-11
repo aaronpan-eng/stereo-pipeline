@@ -13,6 +13,7 @@
   <depend>cv_bridge</depend>
   <depend>ament_index_python</depend>
   <depend>launch_ros</depend>
+  <depend>stereo_pipeline_common</depend>
 
   <exec_depend>ros2launch</exec_depend>
 

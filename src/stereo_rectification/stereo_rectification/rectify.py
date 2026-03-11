@@ -14,6 +14,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
+from stereo_pipeline_common.cuda_timer import CudaTimer
 
 
 class RectifyStereoImgs(Node):
@@ -63,7 +64,9 @@ class RectifyStereoImgs(Node):
                              [0, self.cam1_intrinsics[1], self.cam1_intrinsics[3]],
                              [0, 0, 1]], dtype=np.float64)
         self.D1 = np.array(self.cam1_distortion, dtype=np.float64)
-        self.T_cn_cnm1 = np.array(self.T_cam1_cam0, dtype=np.float64).reshape(4, 4) 
+        self.T_cn_cnm1 = np.array(self.T_cam1_cam0, dtype=np.float64).reshape(4, 4)
+
+        self.cuda_timer = CudaTimer('stereo_rectification')
 
         # Use resolution from parameters (width, height)
         self.image_size = tuple(self.cam0_resolution)
@@ -165,8 +168,6 @@ class RectifyStereoImgs(Node):
         return rect_l, rect_r
 
     def rectify(self, left, right):
-        callback_start = time.perf_counter()
-        
         # grab left and right images
         if self.cam0_topic_type == 'CompressedImage':
             left_img = self.bridge.compressed_imgmsg_to_cv2(left)
@@ -179,8 +180,10 @@ class RectifyStereoImgs(Node):
             return
 
         # rectify using cv2 with cuda support
+        self.cuda_timer.start_timer()
         rect_l, rect_r = self.rectify_cv2_cuda(left_img, right_img)
-
+        self.cuda_timer.end_timer()
+        
         # grab left time stamp to sync publishing
         time_sync_stamp_left = left.header.stamp
         time_sync_stamp_right = right.header.stamp
@@ -232,15 +235,12 @@ class RectifyStereoImgs(Node):
             stereo_pair = np.hstack((rect_l, rect_r))
             rr.log('/stereo_rectification/rectified', rr.Image(stereo_pair).compress(jpeg_quality=80))
 
-        # Log callback execution time
-        callback_elapsed_ms = (time.perf_counter() - callback_start) * 1000
-        # self.get_logger().info(f"Rectify callback time: {callback_elapsed_ms:.2f} ms")
-
 
 def main(args=None):
     rclpy.init(args=args)
     minimal_publisher = RectifyStereoImgs()
     rclpy.spin(minimal_publisher)
+    minimal_publisher.get_logger().info(f"Stereo rectification node average runtime: {minimal_publisher.cuda_timer.get_average_runtime()} ms")
     minimal_publisher.destroy_node()
     rclpy.shutdown()
 

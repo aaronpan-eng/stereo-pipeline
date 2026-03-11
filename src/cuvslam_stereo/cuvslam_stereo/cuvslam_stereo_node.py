@@ -17,7 +17,7 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 from cv_bridge import CvBridge
 from cuvslam_stereo.utils import combine_poses, transform_landmarks
 import numpy as np
-
+from stereo_pipeline_common.cuda_timer import CudaTimer
 
 class CuvslamStereo(Node):
     def __init__(self):
@@ -49,6 +49,9 @@ class CuvslamStereo(Node):
         self.odom_pose_estimates = []
         self.slam_poses = []
         self.loop_closure_poses = []
+
+        # initialize cuda timer
+        self.cuda_timer = CudaTimer('cuvslam_stereo')
         
         # To initialize tracker once upon first image pair callback
         self.initialize_tracker = False
@@ -186,8 +189,6 @@ class CuvslamStereo(Node):
         self.tracker = cuvslam.Tracker(rig, odom_cfg, slam_cfg)
     
     def slam_callback(self, left, right, left_info, right_info):
-        callback_start = time.perf_counter()
-        
         # Initialize tracker
         if self.initialize_tracker is False:
             self._initialize_cuvslam_from_camera_info(left_info, right_info)
@@ -202,7 +203,9 @@ class CuvslamStereo(Node):
         timestamp = Time.from_msg(left_stamp).nanoseconds
 
         # feed the images to the cuvslam tracker
+        self.cuda_timer.start_timer()
         odom_pose_estimate, slam_pose = self.tracker.track(timestamp, [left_img, right_img])
+        self.cuda_timer.end_timer()
 
         # error check odometry estimate
         if odom_pose_estimate.world_from_rig is None:
@@ -315,10 +318,6 @@ class CuvslamStereo(Node):
             self.traj_fig.canvas.draw()
             self.traj_fig.canvas.flush_events()
 
-        # Log callback execution time
-        callback_elapsed_ms = (time.perf_counter() - callback_start) * 1000
-        # self.get_logger().info(f"Callback time: {callback_elapsed_ms:.2f} ms")
-
 
     def visualize_trajectory(self):
 
@@ -365,6 +364,7 @@ def main(args=None):
             cuvslam_stereo.get_logger().info(f"Saved trajectory to {results_dir} directory")
 
         # shutdown node
+        cuvslam_stereo.get_logger().info(f"Cuvslam stereo node average runtime: {cuvslam_stereo.cuda_timer.get_average_runtime()} ms")
         cuvslam_stereo.destroy_node()
         rclpy.shutdown()
 
