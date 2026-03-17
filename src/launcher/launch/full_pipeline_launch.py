@@ -62,9 +62,27 @@ def generate_launch_description():
         }.items()
     )
 
+    # Set pulse on left camera
+    set_cam_pulse = ExecuteProcess(
+        cmd = ['v4l2-ctl', '-d', '/dev/video0', '-c', 'exposure_active_line_selector=0', '&&',
+               'v4l2-ctl', '-d', '/dev/video0', '-c', 'exposure_active_line_mode=1'],
+        output='screen',
+    )
+
+    # Set trigger
+    set_cam_trigger = ExecuteProcess(
+        cmd = ['v4l2-ctl', '-d', '/dev/video1', '-c', 'trigger_mode=1', '&&',
+               'v4l2-ctl', '-d', '/dev/video0', '-c', 'trigger_source=0', '&&',
+               'v4l2-ctl', '-d', '/dev/video0', '-c', 'trigger_activation=0']
+    )
+
     # Setting the frame rate via bash terminal
-    set_frame_rate = ExecuteProcess(
+    set_frame_rate_left = ExecuteProcess(
         cmd=['v4l2-ctl', '-d', '/dev/video0', '--set-parm=65'],
+        output='screen',
+    )
+    set_frame_rate_right = ExecuteProcess(
+        cmd=['v4l2-ctl', '-d', '/dev/video1', '--set-parm=65'],
         output='screen',
     )
 
@@ -119,8 +137,11 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        rectify_config_arg,
-        set_frame_rate,
+        rectify_config_arg, 
+        set_cam_pulse,
+        set_cam_trigger,
+        set_frame_rate_left,
+        set_frame_rate_right,
         left_camera,
         right_camera,
         rectify,
