@@ -7,6 +7,7 @@ import rerun.blueprint as rrb
 import datetime
 import cv2
 import matplotlib.pyplot as plt
+import csv
 
 from pathlib import Path
 from rclpy.node import Node
@@ -80,6 +81,12 @@ class CuvslamStereo(Node):
 
         self.bridge = CvBridge()
 
+        # In-memory timing log, written to disk at shutdown
+        workspace_root = Path(__file__).resolve().parents[3]
+        self.latency_dir = workspace_root / 'output' / 'latency'
+        self.latency_dir.mkdir(parents=True, exist_ok=True)
+        self.timing_log = []
+
         if self.visualization_2d:
             plt.ion()
             self.traj_fig, self.traj_ax = plt.subplots()
@@ -94,6 +101,30 @@ class CuvslamStereo(Node):
 
     def _color_from_id(self, identifier): 
         return [(identifier * 17) % 256, (identifier * 31) % 256, (identifier * 47) % 256]
+
+    def _get_message_id(self, left_msg: Image) -> int:
+        stamp = left_msg.header.stamp
+        return stamp.sec * 10**9 + stamp.nanosec
+
+    def _record_timing(self, message_id: int, recv_time_ns: int, pub_time_ns: int) -> None:
+        self.timing_log.append({
+            "node": "cuvslam",
+            "message_id": message_id,
+            "recv_time_ns": recv_time_ns,
+            "pub_time_ns": pub_time_ns,
+        })
+
+    def save_timing_log(self):
+        path = self.latency_dir / 'cuvslam_timing.csv'
+        try:
+            with path.open('w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['node', 'message_id', 'recv_time_ns', 'pub_time_ns'])
+                for entry in self.timing_log:
+                    writer.writerow([entry['node'], entry['message_id'], entry['recv_time_ns'], entry['pub_time_ns']])
+            self.get_logger().info(f"Saved {len(self.timing_log)} timing entries to {path}")
+        except Exception:
+            self.get_logger().warn("Failed to write cuvslam timing log")
 
 
     def _initialize_rerun_visualization(self, cam_name):
@@ -189,6 +220,9 @@ class CuvslamStereo(Node):
         self.tracker = cuvslam.Tracker(rig, odom_cfg, slam_cfg)
     
     def slam_callback(self, left, right, left_info, right_info):
+        # Time when synchronized rectified messages arrive at this node
+        recv_time_ns = self.get_clock().now().nanoseconds
+        message_id = self._get_message_id(left)
         # Initialize tracker
         if self.initialize_tracker is False:
             self._initialize_cuvslam_from_camera_info(left_info, right_info)
@@ -249,7 +283,7 @@ class CuvslamStereo(Node):
 
         # publish the odometry
         odom_msg = Odometry()
-        odom_msg.header.stamp = self.get_clock().now().to_msg()
+        odom_msg.header.stamp = left.header.stamp
         odom_msg.header.frame_id = 'world'
         odom_msg.pose.pose.position.x = float(odom_pose.translation[0])
         odom_msg.pose.pose.position.y = float(odom_pose.translation[1])
@@ -318,6 +352,10 @@ class CuvslamStereo(Node):
             self.traj_fig.canvas.draw()
             self.traj_fig.canvas.flush_events()
 
+        # Time after publishing odometry and updating internal state
+        pub_time_ns = self.get_clock().now().nanoseconds
+        self._record_timing(message_id, recv_time_ns, pub_time_ns)
+
 
     def visualize_trajectory(self):
 
@@ -351,6 +389,8 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        cuvslam_stereo.save_timing_log()
+
         # Before shutting down, save the trajectory in TUM format
         results_dir = Path(__file__).resolve().parent.parent.parent.parent / 'output' / 'trajectories'
         results_dir.mkdir(parents=True, exist_ok=True)
@@ -366,7 +406,8 @@ def main(args=None):
         # shutdown node
         cuvslam_stereo.get_logger().info(f"Cuvslam stereo node average runtime: {cuvslam_stereo.cuda_timer.get_average_runtime()} ms")
         cuvslam_stereo.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

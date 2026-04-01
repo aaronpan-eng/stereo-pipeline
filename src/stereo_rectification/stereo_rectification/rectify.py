@@ -11,6 +11,8 @@ from message_filters import ApproximateTimeSynchronizer, Subscriber
 from cv_bridge import CvBridge
 import glob
 import os
+import csv
+from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
@@ -101,6 +103,36 @@ class RectifyStereoImgs(Node):
         self.sync.registerCallback(self.rectify)
         self.bridge = CvBridge()
 
+        # In-memory timing log, written to disk at shutdown
+        workspace_root = Path(__file__).resolve().parents[3]
+        self.latency_dir = workspace_root / 'output' / 'latency'
+        self.latency_dir.mkdir(parents=True, exist_ok=True)
+        self.timing_log = []
+
+    def _get_message_id(self, left_msg: Image) -> int:
+        stamp = left_msg.header.stamp
+        return stamp.sec * 10**9 + stamp.nanosec
+
+    def _record_timing(self, message_id: int, recv_time_ns: int, pub_time_ns: int) -> None:
+        self.timing_log.append({
+            "node": "rectify",
+            "message_id": message_id,
+            "recv_time_ns": recv_time_ns,
+            "pub_time_ns": pub_time_ns,
+        })
+
+    def save_timing_log(self):
+        path = self.latency_dir / 'rectify_timing.csv'
+        try:
+            with path.open('w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['node', 'message_id', 'recv_time_ns', 'pub_time_ns'])
+                for entry in self.timing_log:
+                    writer.writerow([entry['node'], entry['message_id'], entry['recv_time_ns'], entry['pub_time_ns']])
+            self.get_logger().info(f"Saved {len(self.timing_log)} timing entries to {path}")
+        except Exception:
+            self.get_logger().warn("Failed to write rectify timing log")
+
     def recalibrate(self, left, right):
         NotImplementedError()
 
@@ -178,6 +210,10 @@ class RectifyStereoImgs(Node):
         return arr[:, :msg.width]
 
     def rectify(self, left, right):
+        # Time when synchronized messages arrive at this node
+        recv_time_ns = self.get_clock().now().nanoseconds
+        message_id = self._get_message_id(left)
+
         # grab left and right images
         if self.cam0_topic_type == 'CompressedImage':
             left_img = self.bridge.compressed_imgmsg_to_cv2(left)
@@ -240,6 +276,10 @@ class RectifyStereoImgs(Node):
         rect_info_right.header.frame_id = 'cam1_rect'
         self.pub_right_info.publish(rect_info_right)
 
+        # Time after publishing rectified images and camera info
+        pub_time_ns = self.get_clock().now().nanoseconds
+        self._record_timing(message_id, recv_time_ns, pub_time_ns)
+
         if self.visualization:
             # display unrectified pair to rerun
             unrect_stereo_pair = np.hstack((left_img, right_img))
@@ -253,10 +293,16 @@ class RectifyStereoImgs(Node):
 def main(args=None):
     rclpy.init(args=args)
     minimal_publisher = RectifyStereoImgs()
-    rclpy.spin(minimal_publisher)
-    minimal_publisher.get_logger().info(f"Stereo rectification node average runtime: {minimal_publisher.cuda_timer.get_average_runtime()} ms")
-    minimal_publisher.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(minimal_publisher)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        minimal_publisher.save_timing_log()
+        minimal_publisher.get_logger().info(f"Stereo rectification node average runtime: {minimal_publisher.cuda_timer.get_average_runtime()} ms")
+        minimal_publisher.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

@@ -12,6 +12,7 @@ from ament_index_python.packages import get_package_share_directory
 from stereo_pipeline_common.cuda_timer import CudaTimer
 import rerun as rr
 import rerun.blueprint as rrb
+import csv
 
 # NeuStereo is an external git submodule - slight modification
 # to pull it in from the submodules directory
@@ -98,6 +99,36 @@ class NeuStereoNode(Node):
 
         # Initialize cvbridge
         self.bridge = CvBridge()
+
+        # In-memory timing log, written to disk at shutdown
+        workspace_root = Path(__file__).resolve().parents[3]
+        self.latency_dir = workspace_root / 'output' / 'latency'
+        self.latency_dir.mkdir(parents=True, exist_ok=True)
+        self.timing_log = []
+
+    def _get_message_id(self, left_msg: Image) -> int:
+        stamp = left_msg.header.stamp
+        return stamp.sec * 10**9 + stamp.nanosec
+
+    def _record_timing(self, message_id: int, recv_time_ns: int, pub_time_ns: int) -> None:
+        self.timing_log.append({
+            "node": "neustereo",
+            "message_id": message_id,
+            "recv_time_ns": recv_time_ns,
+            "pub_time_ns": pub_time_ns,
+        })
+
+    def save_timing_log(self):
+        path = self.latency_dir / 'neustereo_timing.csv'
+        try:
+            with path.open('w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['node', 'message_id', 'recv_time_ns', 'pub_time_ns'])
+                for entry in self.timing_log:
+                    writer.writerow([entry['node'], entry['message_id'], entry['recv_time_ns'], entry['pub_time_ns']])
+            self.get_logger().info(f"Saved {len(self.timing_log)} timing entries to {path}")
+        except Exception:
+            self.get_logger().warn("Failed to write neustereo timing log")
     
     def _initialize_rerun(self):
         # Setup rerun visualizer with recording_id for shared session
@@ -239,6 +270,10 @@ class NeuStereoNode(Node):
         """
         Run inference on NeuStereo from callback
         """
+        # Time when synchronized rectified messages arrive at this node
+        recv_time_ns = self.get_clock().now().nanoseconds
+        message_id = self._get_message_id(left)
+
         # Load images from msg
         left_img = self.bridge.imgmsg_to_cv2(left)
         right_img = self.bridge.imgmsg_to_cv2(right)
@@ -284,8 +319,13 @@ class NeuStereoNode(Node):
         # Publish disparity image (convert to 16-bit for precision)
         # TODO: double check this stuff below
         disparity_msg = self.bridge.cv2_to_imgmsg(disparity.astype(np.uint8), encoding='mono8')
-        disparity_msg.header = left.header
+        disparity_msg.header.stamp = left.header.stamp
+        disparity_msg.header.frame_id = 'neustereo'
         self.disparity_pub.publish(disparity_msg)
+
+        # Time after publishing disparity
+        pub_time_ns = self.get_clock().now().nanoseconds
+        self._record_timing(message_id, recv_time_ns, pub_time_ns)
         
         # Publish depth image (in meters, as 32-bit float)
         # depth_msg = self.bridge.cv2_to_imgmsg(depth.astype(np.float32), encoding='32FC1')
@@ -340,9 +380,11 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        self.get_logger().info(f"NeuStereo node average runtime: {node.cuda_timer.get_average_runtime()} ms")
+        node.save_timing_log()
+        node.get_logger().info(f"NeuStereo node average runtime: {node.cuda_timer.get_average_runtime()} ms")
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':
