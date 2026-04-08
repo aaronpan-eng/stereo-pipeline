@@ -1,0 +1,24 @@
+rectify_stereo_imgs:
+  ros__parameters:
+    cam0:
+      cam_overlaps: [1]
+      camera_model: "pinhole"
+      distortion_coeffs: [-0.22252900498895598, 0.16456556830738026, 0.0003884934757499394, -0.0004468086949998506]
+      distortion_model: "radtan"
+      intrinsics: [1468.2648074337214, 1471.075495642741, 632.0548694347344, 526.379482742728]
+      resolution: [1224, 1024]
+      rostopic: "/cam_sync/cam0/image_raw/compressed"
+      topic_type: "CompressedImage"
+    cam1:
+      T_cn_cnm1: [0.9998060047770942, -0.019499080618180377, -0.0027818459178104277, -0.2223649780885125,
+                  0.019510312545952806, 0.9998013747223389, 0.00406925148893568, -0.0035396573706712596,
+                  0.0027019467100541854, -0.00412273675689719, 0.9999878511890077, -0.0011639201337295664,
+                  0.0, 0.0, 0.0, 1.0]
+      cam_overlaps: [0]
+      camera_model: "pinhole"
+      distortion_coeffs: [-0.23678721487124546, 0.2039053532330335, 0.00029424763224755024, -0.00014639592916885087]
+      distortion_model: "radtan"
+      intrinsics: [1469.7044205296731, 1472.4619209258267, 644.1699857263231, 508.28382300836205]
+      resolution: [1224, 1024]
+      rostopic: "/cam_sync/cam1/image_raw/compressed"
+      topic_type: "CompressedImage"
