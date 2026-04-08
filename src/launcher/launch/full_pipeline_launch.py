@@ -107,6 +107,16 @@ def generate_launch_description():
         }],
     )
 
+    neuslam = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('neuslam'),
+                'launch',
+                'neuslam_launch.py'
+            ])
+        ),
+    )
+
     return LaunchDescription([
         rectify_config_arg,
         set_frame_rate,
@@ -115,4 +125,5 @@ def generate_launch_description():
         rectify,
         cuvslam_stereo,
         neustereo,
+        neuslam,
     ])
