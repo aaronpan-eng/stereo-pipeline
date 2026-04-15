@@ -1,0 +1,310 @@
+### FILE MODIFIED FROM https://github.com/aniket-gupta1/Dynamic_SLAM/blob/dev/configs/demo.yaml ###
+### - Removed dataset and train configurations
+
+model:
+  model_type: NeuslamNet # Options: "RAFT", "NeuslamNet", "NeuFlow"
+  # model_type: RAFT # Options: "RAFT", "NeuslamNet", "NeuFlow"
+  device: cuda
+  # Path to the PyTorch checkpoint (used when backend: pytorch)
+  # weight_path: model_ckpt/neuslam/system_kitti.pth
+  weight_path: neuslam/system_s_w_v_best_disp_ckpt/system_s_w_v_best_disp.pth
+  # Backend switch: "pytorch" | "tensorrt"
+  backend: pytorch #Need to build model for jetson tensorrt - right now model is for different gpu
+  # Path to a pre-built TensorRT engine (.plan) (used when backend: tensorrt)
+  trt_engine_path: neuslam/neuslam_fp16.plan
+
+slam:
+  mp:
+    enabled: true
+    queue_size: 8
+    loop_closure_mode: async
+    # Loop closure is typically much slower than the frontend; give it a larger request queue.
+    loop_closure_queue_size: 32
+
+  # If true, SLAM_Main will use dataset-provided gt_flow + gt_disp and skip model inference.
+  use_gt_flow_disp: false
+
+  # ------------------------------------------------------------
+  # Timing / benchmarking
+  # ------------------------------------------------------------
+  benchmark:
+    enabled: true
+    use_cuda_events: true
+    sort_by: total_s
+    top_k: null
+
+  frontend:
+    odom_stride: 8
+
+    # ------------------------------------------------------------
+    # Confidence-based sparsification
+    # ------------------------------------------------------------
+    # Use NeuSLAMnet disparity+flow confidence to select a sparse set of
+    # high-quality pixels for pose estimation *and* sparse mapping / BA.
+    use_confidence: true
+    confidence_top_ratio: 0.2   # e.g. 0.10 (top 10%) or 0.05 (top 5%)
+    confidence_min_points: 200
+    confidence_max_points: 2000
+    confidence_combine: sum      # sum | min | prod | flow | disp
+    
+    # ------------------------------------------------------------
+    # Confidence gating for static/dynamic mask generation
+    # ------------------------------------------------------------
+    # Pose estimation often works best with a *very* sparse set of pixels
+    # (e.g. top 5%). However, generating static/dynamic masks over the full
+    # image can be noisy when flow/disp is low-confidence.
+    #
+    # This section lets you restrict mask generation to the top X% confidence
+    # pixels, and mark all remaining pixels as invalid so they are not used
+    # downstream (mapping, dynamic tracking, loop closure).
+    mask_use_confidence: true
+    mask_confidence_top_ratio: 1.0   # e.g. 0.50 (top 50%). Set 1.0 to disable.
+    mask_confidence_min_points: 0
+    mask_confidence_max_points: null
+
+    # Depth filtering
+    min_depth: 0.1
+    max_depth: 50.0
+
+    # PnP RANSAC
+    ransac_reproj_error: 2.0
+    ransac_iters: 200
+    ransac_confidence: 0.999
+
+    # ------------------------------------------------------------
+    # Dynamic mask (NeuSLAM motion probability)
+    # ------------------------------------------------------------
+    # If NeuSLAM provides a motion probability head, we can threshold it to get
+    # a per-frame dynamic mask prior.
+    motion_prob_thresh: 0.5
+    # Which dynamic mask to use for tracking / map exclusion:
+    #   - motion_prob : use only NeuSLAM motion_prob
+    #   - frontend    : use inverse of static mask
+    #   - union       : OR(frontend_dynamic, motion_prob)
+    dynamic_mask_source: frontend
+    # If true, union motion-probable pixels into the PnP exclusion mask.
+    exclude_motion_prob_for_pose: false
+
+    # Static mask post-processing
+    dilate_kernel: 5
+
+    # Static/dynamic masking
+    # inliers: sparse mask from PnP inliers (fast, but sparse)
+    # reprojection: dense-ish mask via flow reprojection consistency (recommended)
+    static_mask_method: reprojection
+    reproj_stride: 4
+    reproj_error_thresh_px: 3.0
+    
+    # Optional instance segmentation to mask out dynamic objects before pose estimation.
+    # Turn this on if the inlier-based static mask is brittle in your sequences.
+    segmentor:
+      enabled: false
+      backend: yolov8
+      model: yolov8n-seg.pt
+      device: cuda
+      conf: 0.25
+      iou: 0.7
+      dynamic_only: true
+      class_ids: null
+      dilate_kernel: 0
+
+  motion_filter:
+    translation_thresh: 0.2
+    rotation_thresh_deg: 5.0
+    max_frames: 10
+    first_frame_is_keyframe: true
+
+  backend:
+    type: pgo # Options: "simple", "isam2", "fixed_lag", "pgo"
+
+    # Pose export format(s) when saving outputs.
+    # Used for easy evaluation with the `evo` package.
+    # Options: kitti | tum | euroc | all
+    pose_format: kitti
+
+    # ------------------------------------------------------------
+    # Dense map (optional): unproject depth maps at estimated poses
+    # ------------------------------------------------------------
+    # WARNING: enabling this can increase CPU time. Use stride/random_keep to tune.
+    dense_map:
+      enabled: true
+      keyframes_only: true
+      every_n: 1
+      stride: 2
+      random_keep_prob: 0.05
+      max_points_per_frame: 20000
+      min_depth: 0.1
+      max_depth: 50.0
+      use_static_mask: true
+
+    # iSAM2 backend tuning (only used when type: isam2)
+    isam2:
+      sigma_rot_deg: 2.0              # Pose graph rotation noise (degrees)
+      sigma_trans_m: 0.1              # Pose graph translation noise (meters)
+      sigma_reproj_px: 2.0            # Reprojection noise (pixels)
+      huber_k: 1.345                  # Huber robustification parameter
+      max_tracks: 3000                # Max feature tracks per keyframe (for speed)
+      new_tracks_per_keyframe: 500    # New feature tracks to add at each keyframe
+      new_tracks_per_frame: 0         # New feature tracks to add at each frame (in addition to keyframes)
+      min_track_length: 2             # Minimum track length in frames (for stability)
+      min_feature_distance_px: 8      # Minimum distance between features in pixels (for stability)
+      min_depth: 0.1                  # Minimum depth (meters)
+      max_depth: 50.0                 # Maximum depth (meters)
+      relinearize_skip: 1
+      relinearize_threshold: 0.01
+
+    # Fixed-lag smoother backend (only used when type: fixed_lag)
+    fixed_lag:
+      lag_s: 5.0                      # Window length
+      sigma_rot_deg: 2.0              # Pose graph rotation noise (degrees)
+      sigma_trans_m: 0.1              # Pose graph translation noise (meters)
+      sigma_reproj_px: 2.0            # Reprojection noise (pixels)
+      huber_k: 1.345                  # Huber robustification parameter
+      max_tracks: 3000                # Max feature tracks per keyframe (for speed)
+      new_tracks_per_keyframe: 500    # New feature tracks to add at each keyframe
+      new_tracks_per_frame: 0         # New feature tracks to add at each frame (in addition to keyframes)
+      min_track_length: 2             # Minimum track length in frames (for stability)
+      min_feature_distance_px: 8      # Minimum distance between features in pixels (for stability)
+      min_depth: 0.1                  # Minimum depth (meters)
+      max_depth: 50.0                 # Maximum depth (meters)
+      min_parallax_deg: 0.5           # Minimum parallax for triangulation (degrees)
+      use_landmark_prior: true        # Use prior on landmarks
+      sigma_landmark_prior_m: 1.0     # Landmark prior noise (meters)
+      relinearize_skip: 1
+      relinearize_threshold: 0.01
+
+    mapper:
+      stride: 4
+      min_depth: 0.1
+      max_depth: 50.0
+      max_points_per_keyframe: 2000000
+      random_keep_prob: 0.2
+    
+    tracker:
+      # Connected components filtering
+      min_pixels: 150
+      max_pixels: 10000
+      max_objects: 20
+
+      # Association threhold (meters)
+      max_centroid_dist: 2.5
+      max_missed: 5
+
+      # Track smoothing (to reduce jitter)
+      smooth_alpha: 0.4
+      velocity_beta: 0.5
+      use_velocity_prediction: true
+      max_track_history: 0 # 0 means unlimited
+
+      # Depth filtering
+      min_depth: 0.1
+      max_depth: 50.0
+
+      # Dense point sampling for visualization and export
+      sample_stride: 4
+      max_points_per_object: 2000
+      random_keep_prob: 0.2
+      store_points: true
+      store_colors: true
+      
+      # Mask cleanup
+      use_morphology: true
+      morph_kernel: 5
+
+  loop_closure:
+    enabled: true
+    mode: vpr # Options: "vpr" (visual place recognition) or "covisibility" (covisibility graph search)
+    min_separation_frames: 30
+    top_k_candidates: 10
+    max_verify: 3
+    max_loops_per_keyframe: 1
+    retriever:
+      type: bow # Options: "bow" or "megaloc"
+      min_score: 0.01
+    bow:
+      vocab_path: ORBvoc.txt
+      nfeatures: 2000
+      fast_threshold: 20
+      word_bytes: 8
+      seed: 0
+      ratio_test: 0.75
+    megaloc:
+      enabled: true
+      device: cuda
+      amp: true
+      torch_hub_repo: gmberton/MegaLoc
+      torch_hub_entry: get_trained_model
+    covisibility:
+      search_radius_m: 50.0
+      min_score: 0.05
+      max_candidates: 10
+      sample_stride: 8
+      max_points: 2000
+      min_depth: 0.1
+      max_depth: 50.0
+    verifier:
+      method: pnp
+      pnp_ratio_test: 0.75
+      pnp_min_matches: 80
+      pnp_min_corr: 40
+      pnp_min_inliers: 30
+      pnp_ransac_iters: 200
+      pnp_ransac_reproj_px: 2.5
+      pnp_ransac_confidence: 0.999
+      min_depth: 0.1
+      max_depth: 50.0
+      flow_amp: true
+      flow_min_inliers: 30
+    noise:
+      sigma_rot_deg: 2.0
+      sigma_trans_m: 0.2
+      huber_k: 1.345
+
+  vis:
+    rerun:
+      enabled: true
+      spawn: false # native viewer requires R32Float texture (not supported on Tegra GPU)
+      serve: true # serve web viewer (open http://<jetson_ip>:9090 from a remote browser)
+      serve_web_port: 9090
+      serve_ws_port: 9877
+      save_rrd: true # records an .rrd into <exp_dir>/outputs/rerun.rrd for later playback.
+      connect: false
+      connect_url: rerun+grpc://127.0.0.1:9876
+      rrd_filename: rerun.rrd
+      
+      image_every_n: 1
+      pose_every_n: 1
+      camera_every_n: 1
+      map_every_n_keyframes: 1
+      max_map_points: 200000
+
+      log_images: true
+      log_map: true
+      log_cameras: true
+      log_keyframe_frustums: true
+      log_dynamic: true
+      log_track_trails: true
+      log_dynamic_mask: true
+      log_dynamic_mask_overlay: true
+      log_dynamic_trails: true
+      max_dynamic_points_per_object: 2000
+      dynamic_point_radius: 0.01
+      dynamic_trail_radius: 0.02
+      dynamic_trail_max_len: 300
+      log_gt_poses: false
+      log_ba_poses: true
+
+      camera_frustum_scale: 0.1
+      camera_frustum_radius: 0.01
+
+      flow_clip_percentile: 99.0
+      disp_clip_percentile: 99.0
+
+    debug: 
+      enabled: false
+      every_n: 1
+      window_name: dslam_debug
+      max_width: 0
+      flow_clip_percentile: 99.0
+      disp_clip_percentile: 99.0
+      depth_clip_percentile: 99.0

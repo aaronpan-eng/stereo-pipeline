@@ -9,11 +9,14 @@
 
 *In **Bold** are high priority tasks*
 
-- [ ] **(WIP) - Get AlliedVision cameras working with the pipeline**
-- [ ] **(WIP) - Debug why CUDA is running out of memory**
-- [ ] **(WIP) - Evaluate runtimes of image publishing, rectification node, cuvslam node, neustereo node**
-- [ ] Add Shell script or instructions for building OpenCV with CUDA support and cv_bridge
-- [ ] Add ros2 camera launch command to the full_pipeline_launch.py
+- [ ] **(WIP) get neuslam into a node**
+- [ ] Use Aniket provided zip for pydbow3 (original maintainer deleted it) - based off of foxis implementation
+- [ ] Add GTSAM == 4.3a0 to the pip setup scripts
+- [x] Get AlliedVision cameras working with the pipeline
+- [x] Debug why CUDA is running out of memory
+- [x] Evaluate runtimes of image publishing, rectification node, cuvslam node, neustereo node
+- [x] Add Shell script or instructions for building OpenCV with CUDA support and cv_bridge
+- [x] Add ros2 camera launch command to the full_pipeline_launch.py
 - [ ] After optimization - Convert necessary nodes into cpp
 - [ ] Add IMU for VIO and compare traj once dslam comparison sorted
 - [x] Add GPU suport for OpenCV (built OpenCV from source and used OpenCV CUDA module)

@@ -26,3 +26,7 @@
 	path = submodules/vision_opencv
 	url = git@github.com:ros-perception/vision_opencv.git
 	branch = humble
+[submodule "submodules/Dynamic_SLAM"]
+	path = submodules/Dynamic_SLAM
+	url = aaron_p:aniket-gupta1/Dynamic_SLAM.git
+	branch = dev
