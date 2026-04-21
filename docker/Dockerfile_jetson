@@ -1,0 +1,12 @@
+FROM nvcr.io/nvidia/l4t-jetpack:r36.4.0
+
+WORKDIR /workspace
+
+# install git
+RUN apt-get update && apt-get install -y git
+
+# Build time secret for github id
+RUN git clone https://github.com/aaronpan-eng/stereo-pipeline.git /workspace/stereo-pipeline
+
+RUN cd WORKDIR/stereo-pipeline && \
+    ./setup.sh

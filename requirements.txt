@@ -6,3 +6,5 @@ pillow==11.1.0
 pyyaml==6.0.2
 rerun-sdk==0.22.1
 scipy==1.14.1
+munch==4.0.0
+gtsam==4.3a0
