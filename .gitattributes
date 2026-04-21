@@ -1,3 +1,5 @@
 src/**/*.pth filter=lfs diff=lfs merge=lfs -text
 src/**/*.onnx filter=lfs diff=lfs merge=lfs -text
 src/**/*.plan filter=lfs diff=lfs merge=lfs -text
+src/neuslam/models/** filter=lfs diff=lfs merge=lfs -text
+external/*.zip filter=lfs diff=lfs merge=lfs -text
