@@ -68,7 +68,7 @@ else
     echo "------------------------------------"
     echo "** Install opencv ${version} (4/4)"
     echo "------------------------------------"
-    sudo checkinstall --pkgname=opencv-custom --pkgversion=${version} --default make install
+    sudo checkinstall --pkgname=opencv-custom --pkgversion=${version} --default --install=no --exclude=/proc --exclude=/home make install
     echo "** Deb package created. Copy it to scripts/ for fast install on other machines."
 fi
 
