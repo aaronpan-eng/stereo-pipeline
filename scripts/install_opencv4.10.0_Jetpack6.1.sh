@@ -61,15 +61,15 @@ else
     echo "------------------------------------"
     mkdir release
     cd release/
-    cmake -D WITH_CUDA=ON -D WITH_CUDNN=ON -D CUDA_ARCH_BIN="8.7" -D CUDA_ARCH_PTX="" -D OPENCV_GENERATE_PKGCONFIG=ON -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-${version}/modules -D WITH_GSTREAMER=ON -D WITH_LIBV4L=ON -D BUILD_opencv_python3=ON -D BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_EXAMPLES=OFF -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local ..
+    cmake -D WITH_CUDA=ON -D WITH_CUDNN=ON -D CUDA_ARCH_BIN="8.7" -D CUDA_ARCH_PTX="" -D OPENCV_GENERATE_PKGCONFIG=ON -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-${version}/modules -D WITH_GSTREAMER=ON -D WITH_LIBV4L=ON -D BUILD_opencv_python3=ON -D PYTHON3_PACKAGES_PATH=/usr/local/lib/python3.10/site-packages BUILD_TESTS=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_EXAMPLES=OFF -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local ..
     make -j$(nproc)
 
 
     echo "------------------------------------"
     echo "** Install opencv ${version} (4/4)"
     echo "------------------------------------"
-    sudo checkinstall --pkgname=opencv-custom --pkgversion=${version} --default --install=no --exclude=/proc --exclude=/home make install
-    echo "** Deb package created. Copy it to scripts/ for fast install on other machines."
+    sudo checkinstall --pkgname=opencv-custom --pkgversion=${version} --default --install=yes --exclude=/proc --exclude=/home make install
+    echo "** Deb package created and installed."
 fi
 
 echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ~/.bashrc
