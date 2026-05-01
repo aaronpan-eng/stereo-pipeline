@@ -1,0 +1,80 @@
+# Base image for hybrid dev (compose mounts the repo at runtime).
+#
+# Cache behavior (top → bottom): a changed file invalidates its COPY and every layer after it; earlier layers can stay cached.
+#   • requirements.txt → redo COPY requirements + RUN pip; BuildKit can still cache later COPY scripts/setup.sh if those trees unchanged.
+#   • scripts/         → redo COPY scripts + COPY setup.sh; pip layer stays cached if requirements.txt unchanged.
+#   • setup.sh         → redo only COPY setup.sh if requirements + scripts unchanged.
+#
+# Runtime: the bind mount hides these paths in the container, but builds still use this ordering for cache.
+
+FROM nvcr.io/nvidia/l4t-jetpack:r36.4.0
+
+#default repo name to stereo-pipeline if no --build_arg passed
+ARG REPO_NAME=stereo-pipeline
+WORKDIR /workspace/${REPO_NAME}
+
+# Rarely edited — keep above all file-dependent layers
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-pip \
+    git \
+    git-lfs \
+    unzip \
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# install ROS2 Humble (same flow as scripts/install_ros2_humble.sh; image build: no sudo, noninteractive)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales \
+    software-properties-common \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN locale-gen en_US en_US.UTF-8 \
+ && update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+
+ENV LANG=en_US.UTF-8
+
+RUN apt-get update \
+ && add-apt-repository -y universe \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN ROS_APT_SOURCE_VERSION="$(python3 -c 'import json,urllib.request; print(json.load(urllib.request.urlopen("https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest"))["tag_name"])')" \
+ && CODENAME="$(. /etc/os-release && echo "${UBUNTU_CODENAME:-${VERSION_CODENAME}}")" \
+ && curl -fsSL -o /tmp/ros2-apt-source.deb \
+      "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.${CODENAME}_all.deb"
+
+RUN apt-get update \
+ && dpkg -i /tmp/ros2-apt-source.deb \
+ && apt-get install -y -f \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ros-humble-desktop
+
+# install colcon extensions
+RUN apt-get install -y python3-colcon-common-extensions
+
+# remove apt index
+RUN rm -rf /var/lib/apt/lists/*
+
+# copying directories needed for the setup.sh
+COPY submodules/pycuvslam ./submodules/pycuvslam
+COPY submodules/vision_opencv ./submodules/vision_opencv
+COPY scripts ./scripts
+COPY external ./external
+COPY requirements.txt .
+
+# copy setup.sh script
+COPY setup.sh .
+
+# setup.sh uses sudo; in Docker we are root — stub sudo so bare commands run without apt installing sudo.
+RUN chmod +x setup.sh \
+ && bash -c 'sudo() { "$@"; }; export -f sudo; ./setup.sh'
+
+# Copy over data directories and src folder
+COPY src ./src
+COPY data/Dynamic_SLAM/EUROC ./data/Dynamic_SLAM/EUROC
+COPY utils/publish_euroc.py ./utils/
+COPY submodules/Dynamic_SLAM ./submodules/Dynamic_SLAM
+COPY submodules/COLCON_IGNORE ./submodules/

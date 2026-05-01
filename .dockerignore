@@ -1,0 +1,18 @@
+# Heavy submodules — omit from image context (paths relative to repo root)
+submodules/droid-slam/
+submodules/fast_LIMO/
+submodules/NeuROAM/
+submodules/orb_slam3/
+submodules/vimbax_ros2_driver
+
+# local vision_opencv folders from colcon
+submodules/vision_opencv/build
+submodules/vision_opencv/install
+submodules/vision_opencv/log
+
+# exclude heavy data
+data/**
+!data/Dynamic_SLAM/**
+
+# exclude heavy output data like rerun recordings
+output/**

@@ -1,0 +1,23 @@
+# Hybrid dev: image built from Dockerfile_jetson; bind mounts the repo for fast iteration.
+#
+# From repo root:
+#   ./docker/compose.sh build
+#   ./docker/compose.sh run --rm -it stereo-dev bash
+#
+# Requires REPO_NAME (compose.sh sets it from the checkout folder name).
+
+services:
+  stereo-dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile_jetson
+      args:
+        REPO_NAME: ${REPO_NAME:?Set REPO_NAME or run via docker/compose.sh}
+    image: stereo-pipeline:jetson-dev
+    container_name: stereo-pipeline-dev
+    working_dir: /workspace/${REPO_NAME}
+    volumes:
+      - ..:/workspace/${REPO_NAME}:rw
+    stdin_open: true
+    tty: true
+    network_mode: host

@@ -28,3 +28,9 @@ dist/
 
 # OpenCV with CUDA support workspace directory
 scripts/workspace/
+
+# any python venv
+.venv/
+
+# external folder extracted folder
+external/PyDBoW3/
