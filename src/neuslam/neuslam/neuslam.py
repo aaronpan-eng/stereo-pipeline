@@ -5,7 +5,6 @@ from pathlib import Path
 
 import cv2
 import rclpy
-import rerun as rr
 import numpy as np
 from rclpy.node import Node
 
@@ -67,7 +66,8 @@ class NeuSLAM(Node):
         self.slam_cfg = munchify(slam_cfg)
 
         self._set_model_path()
-
+        self._apply_runtime_visualization_overrides()
+        
         # SLAM initialization (use slam.mp.enabled from config to select backend)
         slam_out = workspace_root / 'output' / 'slam_mc'
         slam_out.mkdir(parents=True, exist_ok=True)
@@ -91,6 +91,15 @@ class NeuSLAM(Node):
         self.slam_cfg.model.weight_path = str(models_dir / self.slam_cfg.model.weight_path)
         self.slam_cfg.model.trt_engine_path = str(models_dir / self.slam_cfg.model.trt_engine_path)
         self.slam_cfg.slam.loop_closure.bow.vocab_path = str(models_dir / self.slam_cfg.slam.loop_closure.bow.vocab_path)
+
+    def _apply_runtime_visualization_overrides(self):
+        """Bridge ROS params to Dynamic_SLAM rerun config."""
+        rerun_cfg = self.slam_cfg.slam.vis.rerun
+        rerun_cfg.enabled = bool(self.rerun_visualization)
+        self.get_logger().info(
+            f"Dynamic_SLAM rerun logging enabled={rerun_cfg.enabled} "
+            f"(serve={getattr(rerun_cfg, 'serve', False)}, spawn={getattr(rerun_cfg, 'spawn', False)})"
+        )
 
     # def _initialize_rerun_visualization():
     #     rr.init()      
@@ -236,6 +245,7 @@ class NeuSLAM(Node):
                 "left_t0": left_prev,
                 "right_t0": right_prev,
                 "left_t1": left_t,
+            # use SLAM multiprocessing (runs parallel)
                 "K": K,
                 "baseline": baseline,
             }

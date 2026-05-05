@@ -164,6 +164,16 @@ class RectifyStereoImgs(Node):
 
         return rect_l, rect_r
 
+    def _img_padded(self, msg):
+        if msg.step == msg.width:
+            return True
+        else:
+            return False
+        
+    def _strip_padding(self, msg):
+        arr = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.step)
+        return arr[:, :msg.width]
+
     def rectify(self, left, right):
         callback_start = time.perf_counter()
         
@@ -172,8 +182,12 @@ class RectifyStereoImgs(Node):
             left_img = self.bridge.compressed_imgmsg_to_cv2(left)
             right_img = self.bridge.compressed_imgmsg_to_cv2(right)
         elif self.cam1_topic_type == 'Image':
-            left_img = self.bridge.imgmsg_to_cv2(left)
-            right_img = self.bridge.imgmsg_to_cv2(right)
+            if self._img_padded(left):
+                left_img = self._strip_padding(left)
+                right_img = self. _strip_padding(right)
+            else:
+                left_img = self.bridge.imgmsg_to_cv2(left)
+                right_img = self.bridge.imgmsg_to_cv2(right)
         else:
             self.get_logger().error(f"Unsupported topic type: {self.cam0_topic_type} or {self.cam1_topic_type}")
             return
