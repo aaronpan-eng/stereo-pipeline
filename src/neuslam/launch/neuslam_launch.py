@@ -32,6 +32,8 @@ def generate_launch_description():
         name='neuslam',
         output='screen',
         emulate_tty=True, # Show logs in terminal
+        sigterm_timeout='30',
+        sigkill_timeout='30',
         parameters=[
             neuslam_config_path,
         ],

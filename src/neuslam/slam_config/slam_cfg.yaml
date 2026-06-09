@@ -9,9 +9,11 @@ model:
   # weight_path: model_ckpt/neuslam/system_kitti.pth
   weight_path: neuslam/system_s_w_v_best_disp_ckpt/system_s_w_v_best_disp.pth
   # Backend switch: "pytorch" | "tensorrt"
-  backend: pytorch #Need to build model for jetson tensorrt - right now model is for different gpu
+  backend: tensorrt
   # Path to a pre-built TensorRT engine (.plan) (used when backend: tensorrt)
-  trt_engine_path: neuslam/neuslam_fp16.plan
+  trt_engine_path: neuslam/system_s_w_v_best_disp_ckpt/neuslam_fp16_2.plan
+  # batch size for neuslam
+  batch: 2
 
 slam:
   mp:
@@ -264,7 +266,7 @@ slam:
     rerun:
       enabled: true
       spawn: false # native viewer requires R32Float texture (not supported on Tegra GPU)
-      serve: true # serve web viewer (open http://<jetson_ip>:9090 from a remote browser)
+      serve: false # serve web viewer (open http://<jetson_ip>:9090 from a remote browser)
       serve_web_port: 9090
       serve_ws_port: 9877
       save_rrd: true # records an .rrd into <exp_dir>/outputs/rerun.rrd for later playback.
@@ -276,7 +278,7 @@ slam:
       pose_every_n: 1
       camera_every_n: 1
       map_every_n_keyframes: 1
-      max_map_points: 200000
+      max_map_points: 200000s
 
       log_images: true
       log_map: true
