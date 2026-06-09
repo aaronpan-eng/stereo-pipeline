@@ -1,4 +1,5 @@
 import sys
+from sympy import Q
 import yaml
 import threading
 from pathlib import Path
@@ -6,7 +7,10 @@ from pathlib import Path
 import cv2
 import rclpy
 import numpy as np
+import torch
 from rclpy.node import Node
+from typing import List
+from collections import deque
 
 from std_msgs.msg import String
 from nav_msgs.msg import Odometry
@@ -71,7 +75,14 @@ class NeuSLAM(Node):
         # SLAM initialization (use slam.mp.enabled from config to select backend)
         slam_out = workspace_root / 'output' / 'slam_mc'
         slam_out.mkdir(parents=True, exist_ok=True)
+        self.slam_out_dir = slam_out
+        self._outputs_saved = False
+        self._shutdown_drain_timeout_s = 10.0
+        self._shutdown_save_timeout_s = 10.0
         self.use_mp = bool(self.slam_cfg.slam.mp.enabled)
+
+        # batch size
+        self.batch_size = self.slam_cfg.model.batch
 
         if self.use_mp:
             self.get_logger().info("Using SLAM_MP (multiprocessing)")
@@ -83,6 +94,14 @@ class NeuSLAM(Node):
 
         # image pair previous
         self.prev_pair = None
+
+        # image tensor buffer
+        self.image_tensor_buffer = {
+            "left_t0": deque(),
+            "right_t0": deque(),
+            "left_t1": deque(),
+            "timestamp": deque()
+        }
 
     def _set_model_path(self):
         """Resolve relative model paths against the installed models/ directory."""
@@ -104,28 +123,56 @@ class NeuSLAM(Node):
     # def _initialize_rerun_visualization():
     #     rr.init()      
 
-    # TODO: get rid of buffer methods if not used in code later
-    def _is_buffer_initialized(self):
-        # Check if image_buffer attribute exists
-        # if not, create it as an empty list
-        if not hasattr(self, "image_buffer"):
-            self.image_buffer = []
- 
-        if len(self.image_buffer) == 2:
+    def _resize_if_needed(self, img):
+        """Resize image to (TARGET_W, TARGET_H) if dimensions don't match."""
+        h, w = img.shape[:2]
+        if w != self.TARGET_W or h != self.TARGET_H:
+            img = cv2.resize(img, (self.TARGET_W, self.TARGET_H), interpolation=cv2.INTER_LINEAR)
+        return img
+
+    def _img_to_tensor(self, img):
+        """Convert a numpy image (H,W) or (H,W,3) uint8 to a (3,H,W) float tensor"""
+        import torch
+        if img.ndim == 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        elif img.shape[2] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGB)
+        else:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        t = torch.from_numpy(img).permute(2, 0, 1).contiguous().float() / 255.0
+        return t  # shape is (3, H, W)
+
+    def _buffer_size_reached(self):
+        """Determine if buffer for images has reached the desired batch size""" 
+        # TODO: make this more robust in case "left_t0" isnt one of the elements
+        # TODO: check to make sure all are same size
+        if len(self.image_tensor_buffer["left_t0"]) == self.batch_size:
             return True
 
-        if len(self.image_buffer) > 2:
-            self.get_logger().error("Unexpected behavior: Image buffer has more than 2 elements.")
-            raise RuntimeError("Image buffer overflow: more than 2 elements present.")
+        if len(self.image_tensor_buffer["left_t0"]) > self.batch_size:
+            self.get_logger().error(f"Unexpected behavior: Image buffer has more than {self.batch_size} elements.")
+            raise RuntimeError(f"Image buffer overflow: more than {self.batch_size} elements present.")
         return False
 
-    # TODO: get rid of buffer methods if not used in code later
-    def _add_to_buffer(self, left, right):
-        if len(buffer) < 2:
-            self.image_buffer.append((left, right))
-        else:
-            self.image_buffer.pop(0)
-            self.image_buffer.append((left, right))
+    # add images to buffer and delete
+    def _add_to_buffer(self, prev_left_tensor, prev_right_tensor, curr_left_tensor, timestamp):
+        """Add images to buffer while managing buffer size"""
+        if self._buffer_size_reached():
+            for q in self.image_tensor_buffer.values():
+                q.popleft()
+        self.image_tensor_buffer["left_t0"].append(prev_left_tensor)
+        self.image_tensor_buffer["right_t0"].append(prev_right_tensor)
+        self.image_tensor_buffer["left_t1"].append(curr_left_tensor)
+        self.image_tensor_buffer["timestamp"].append(timestamp)
+
+    def _get_batched_tensor(self, item_name: str) -> torch.Tensor:
+        batch = torch.stack(tuple(self.image_tensor_buffer[item_name]))
+        return batch
+
+    def _clear_buffer(self):
+        """Clear image buffer - used after whole buffer is submitted as a batch to the slam pipeline"""
+        for q in self.image_tensor_buffer.values():
+            q.clear()
 
     def _result_reader(self):
         """Background thread: blocks on the SLAM backend output queue and
@@ -190,33 +237,8 @@ class NeuSLAM(Node):
 
     TARGET_W, TARGET_H = 768, 368
 
-    def _resize_if_needed(self, img):
-        """Resize image to (TARGET_W, TARGET_H) if dimensions don't match."""
-        h, w = img.shape[:2]
-        if w != self.TARGET_W or h != self.TARGET_H:
-            img = cv2.resize(img, (self.TARGET_W, self.TARGET_H), interpolation=cv2.INTER_LINEAR)
-        return img
-
-    def _img_to_tensor(self, img):
-        """Convert a numpy image (H,W) or (H,W,3) uint8 to a (1,3,H,W) float tensor in [0,1]."""
-        import torch
-        if img.ndim == 2:
-            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-        elif img.shape[2] == 4:
-            img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGB)
-        else:
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        t = torch.from_numpy(img).permute(2, 0, 1).contiguous().float() / 255.0
-        return t.unsqueeze(0)  # (1, 3, H, W)
 
     def slam_callback(self, left, right, left_info, right_info):
-        self.get_logger().info("slam_callback called")
-
-        # image buffer has to be initialized
-        # if not _is_buffer_initialized:
-        #     self._add_to_buffer(left, right)
-        #     return
-
         # convert images: ROS msg -> numpy (resize) -> torch tensor (1,3,H,W) float [0,1]
         left_t = self._img_to_tensor(self._resize_if_needed(self.bridge.imgmsg_to_cv2(left)))
         right_t = self._img_to_tensor(self._resize_if_needed(self.bridge.imgmsg_to_cv2(right)))
@@ -226,26 +248,39 @@ class NeuSLAM(Node):
             self.prev_pair = (left_t, right_t, left_info, right_info)
             return
 
-        # get prev image data
-        left_prev, right_prev, left_info_prev, right_info_prev = self.prev_pair
-
+        # get prev image data and add to buffer
+        left_prev_t, right_prev_t, left_info_prev, right_info_prev = self.prev_pair
         # timestamp
-        ts = left.header.stamp.sec + left.header.stamp.nanosec * 1e-9
+        curr_ts = float(left.header.stamp.sec + left.header.stamp.nanosec * 1e-9)
+        self._add_to_buffer(left_prev_t, right_prev_t, left_t, curr_ts)
 
+        # if buffer not initialized - build up buffer and skip callback
+        if not self._buffer_size_reached():
+            self.prev_pair = (left_t, right_t, left_info, right_info)
+            return
+        
+        # ---- Start SLAM callback ----
         # Extract K and baseline from CameraInfo as torch tensors
-        import torch
         K = torch.tensor(left_info.k, dtype=torch.float32).reshape(3, 3)
         baseline = None
         if right_info.p[3] != 0.0 and right_info.p[0] != 0.0:
             baseline = torch.tensor(abs(right_info.p[3] / right_info.p[0]), dtype=torch.float32)
 
+        # grab image tensors from the buffer
+        prev_left_batch = self._get_batched_tensor("left_t0")
+        prev_right_batch = self._get_batched_tensor("right_t0")
+        curr_left_batch = self._get_batched_tensor("left_t1")
+
+        # convert timestamp to list
+        ts = list(self.image_tensor_buffer["timestamp"])
+ 
         if self.use_mp:
-            batch = {
-                "timestamp": float(ts),
-                "left_t0": left_prev,
-                "right_t0": right_prev,
-                "left_t1": left_t,
             # use SLAM multiprocessing (runs parallel)
+            batch = {
+                "timestamp": ts,
+                "left_t0": prev_left_batch,
+                "right_t0": prev_right_batch,
+                "left_t1": curr_left_batch,
                 "K": K,
                 "baseline": baseline,
             }
@@ -263,7 +298,7 @@ class NeuSLAM(Node):
                     self.get_logger().error(f"[SLAM_MP] {msg}")
         else:
             out = self.slam(
-                ts, left_prev, right_prev, left_t,
+                ts, prev_left_batch, prev_right_batch, curr_left_batch,
                 K=K, baseline=baseline,
             )
             self._publish_pose(out)
@@ -275,6 +310,50 @@ class NeuSLAM(Node):
 
         # update previous pair
         self.prev_pair = (left_t, right_t, left_info, right_info)
+        self._clear_buffer()
+
+    def shutdown_slam(self):
+        """Flush pending SLAM work, save outputs, and stop worker processes."""
+        if self._outputs_saved:
+            return
+
+        def _log_safe(level: str, message: str):
+            try:
+                if not rclpy.ok():
+                    print(f"[neuslam][{level.upper()}] {message}")
+                    return
+                logger = self.get_logger()
+                if level == "warning":
+                    logger.warning(message)
+                elif level == "error":
+                    logger.error(message)
+                else:
+                    logger.info(message)
+            except Exception:
+                print(f"[neuslam][{level.upper()}] {message}")
+
+        try:
+            if self.use_mp:
+                try:
+                    self.slam.end()
+                    self.slam.wait_until_done(timeout_s=self._shutdown_drain_timeout_s)
+                except Exception as e:
+                    _log_safe("warning", f"Failed while draining MP SLAM queue: {e!r}")
+
+            if self.use_mp:
+                outputs = self.slam.save_outputs(self.slam_out_dir, timeout_s=self._shutdown_save_timeout_s)
+            else:
+                outputs = self.slam.save_outputs(self.slam_out_dir)
+            _log_safe("info", f"Saved SLAM outputs to {self.slam_out_dir}: {outputs}")
+            self._outputs_saved = True
+        except Exception as e:
+            _log_safe("error", f"Failed to save SLAM outputs: {e!r}")
+        finally:
+            if self.use_mp:
+                try:
+                    self.slam.shutdown()
+                except Exception as e:
+                    _log_safe("warning", f"Failed to fully shutdown MP SLAM workers: {e!r}")
 
 
 
@@ -286,6 +365,7 @@ def main(args=None):
         rclpy.spin(neuslam_node)
     finally:
         if neuslam_node is not None:
+            neuslam_node.shutdown_slam()
             neuslam_node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
